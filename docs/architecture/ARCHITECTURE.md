@@ -16,7 +16,7 @@ This document describes the technical architecture for Optimism, a Pac-Man-inspi
 [dependencies]
 bevy = "0.18"
 avian2d = "0.5"
-bevy_kira_audio = "0.24"
+bevy_kira_audio = "0.25"
 bevy_asset_loader = "0.25.0-rc.1"  # stable 0.25 not yet published as of Feb 2026
 micromegas = "0.14"
 micromegas-tracing = "0.14"
@@ -95,7 +95,7 @@ All game sprites are generated in code. No external image files for game art.
 
 ### Approach
 
-At startup, `SpriteGenPlugin` runs in `OnEnter(AppState::Loading)` and generates `Image` assets by writing pixels directly into RGBA buffers. It then creates `TextureAtlas` layouts from them and inserts the handles as resources.
+At startup, `SpriteGenPlugin` runs in `OnEnter(AppState::Loading)` and generates `Image` assets by writing pixels directly into RGBA buffers. It then creates `TextureAtlas` layouts from them and inserts the handles as resources. Because these assets are created in-memory (not loaded from disk), their handles are immediately valid — no interaction with `bevy_asset_loader`'s async loading. `bevy_asset_loader` manages only the disk-based assets (audio files, fonts, map files); procedural sprites are a separate concern that completes synchronously within `OnEnter`.
 
 This gives us:
 - Full control over the pixel art style
@@ -287,20 +287,20 @@ Levels are plain text files stored in `assets/maps/`. Each file is a grid of ASC
 ############################
 #............##............#
 #.####.#####.##.#####.####.#
-#.####.#####.##.#####.####.#
+#W####.#####.##.#####.####W#
 #..........................#
 #.####.##.########.##.####.#
 #......##....##....##......#
 ######.##### ## #####.######
      #.#   G    G #.#
 ######.# ###--### #.######
-      .  #        #  .
+      .  #  G  G  #  .
 ######.# ########## #.######
-     #.#            #.#
+     #.#      L     #.#
 ######.# ########## #.######
 #............##............#
 #.####.#####.##.#####.####.#
-#...##.......P .......##...#
+#W..##.......P .......##..W#
 ###.##.##.########.##.##.###
 #......##....##....##......#
 #.##########.##.##########.#
@@ -333,11 +333,13 @@ The `CurrentLevel` resource maps to a `LevelConfig` that determines:
 | 5-6 | Knife | Rolex |
 | 7-8 | Axe | Goblet |
 | 9-10 | Chainsaw | Fur coat |
-| 11+ | Chainsaw | Gold toilet |
+| 11-12 | Chainsaw | Gold toilet |
 
 As levels progress, `enemy_speed_multiplier` increases and `weapon_duration_secs` decreases.
 
-### The Garden (final level)
+### The Garden (level 13)
+
+Level 13 triggers the Garden — a special `LevelConfig` with no weapon, no luxury item, and `enemy_speed_multiplier: 0.0` (which the `EnemyPlugin` interprets as "no enemies spawned"). The `NarrationPlugin` checks `CurrentLevel` and suppresses all quotes for this level. The maze file is a small, simple layout with only `#`, `.`, `P`, and ` ` characters — no `G`, `W`, or `L` markers.
 
 After the chainsaw levels — silence. A small, simple maze. No enemies. No weapons. No Pangloss. Just money to collect quietly.
 
