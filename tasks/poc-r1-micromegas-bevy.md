@@ -88,7 +88,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.18", default-features = false, features = ["core"] }
+bevy = { version = "0.18", default-features = false, features = ["default_app"] }
 micromegas-tracing = { path = "../micromegas/rust/tracing", default-features = false }
 micromegas-telemetry-sink = { path = "../micromegas/rust/telemetry-sink" }
 
@@ -98,7 +98,7 @@ serial_test = "3.2"
 
 **Why path deps**: Avoids the 5+ minute compile of the full `micromegas` facade. Only two crates are needed: `micromegas-tracing` (macros, dispatch, test utils) and `micromegas-telemetry-sink` (`TelemetryGuardBuilder`, `LocalEventSink`).
 
-**Why `features = ["core"]`**: Bevy's `core` feature includes `TaskPoolPlugin`, `TimePlugin`, `ScheduleRunnerPlugin`, `FrameCountPlugin` — everything needed for headless execution.
+**Why `features = ["default_app"]`**: Bevy's `default_app` feature collection includes the core pieces most apps need (`TaskPoolPlugin`, `TimePlugin`, `ScheduleRunnerPlugin`, `FrameCountPlugin`) without pulling in rendering or windowing — everything needed for headless execution.
 
 ---
 
@@ -115,6 +115,9 @@ use micromegas_tracing::prelude::*;
 
 fn main() {
     // 1. Initialize telemetry (creates LocalEventSink for stdout)
+    //    Note: spans require MICROMEGAS_ENABLE_CPU_TRACING=true (env var).
+    //    Without it, init_thread_stream() is a no-op and spans are silently dropped.
+    //    Logs and metrics always work regardless.
     let _telemetry_guard = TelemetryGuardBuilder::default()
         .build()
         .expect("failed to initialize telemetry");
@@ -186,7 +189,7 @@ mod tests {
     use std::time::Duration;
 
     /// Test 1: Micromegas macros don't panic when called from Bevy systems
-    /// running on the parallel executor.
+    /// running on the parallel executor, and span events are actually collected.
     #[test]
     #[serial]
     fn micromegas_macros_dont_panic_in_bevy_systems() {
@@ -218,13 +221,27 @@ mod tests {
             })
             .run();
 
-        let sink = guard.sink();
+        // Flush span buffers from pool threads — events stay in thread-local
+        // buffers until explicitly flushed (buffer is sized in bytes and won't
+        // auto-flush after only ~20 small events). flush_thread_buffer() flushes
+        // the CURRENT thread's local buffer, so we must run it on each worker.
+        let pool = ComputeTaskPool::get();
+        pool.scope(|s| {
+            for _ in 0..pool.thread_num() {
+                s.spawn(async { micromegas_tracing::dispatch::flush_thread_buffer(); });
+            }
+        });
+
+        let sink = &guard.sink;
         // 2 systems x 5 frames = at least 10 log events
         assert!(sink.total_log_events() >= 10,
             "expected >= 10 log events, got {}", sink.total_log_events());
         // 2 systems x 2 metrics x 5 frames = at least 20
         assert!(sink.total_metrics_events() >= 20,
             "expected >= 20 metrics events, got {}", sink.total_metrics_events());
+        // 2 systems x 2 span events (begin+end) x 5 frames = at least 20
+        assert!(sink.total_thread_events() >= 20,
+            "expected >= 20 span events, got {}", sink.total_thread_events());
     }
 
     /// Test 2: Spans are silently dropped without per-thread init.
@@ -240,7 +257,7 @@ mod tests {
             info!("this log should work");
         }
 
-        let sink = guard.sink();
+        let sink = &guard.sink;
         assert!(sink.total_log_events() >= 1,
             "logs should work without thread init");
         assert_eq!(sink.total_thread_events(), 0,
@@ -267,7 +284,7 @@ mod tests {
             h.join().unwrap();
         }
 
-        let sink = guard.sink();
+        let sink = &guard.sink;
         assert!(sink.total_log_events() >= 4,
             "expected >= 4 log events from threads, got {}", sink.total_log_events());
         assert!(sink.total_metrics_events() >= 8,
@@ -289,8 +306,8 @@ mod tests {
 | Criterion | Command | Expected |
 |-----------|---------|----------|
 | All 3 tests pass | `cargo test -- --test-threads=1` | 3 passed, 0 failed |
-| Console output from both systems | `cargo run` | `system_a` and `system_b` log lines on stdout |
-| No crashes with CPU tracing | `MICROMEGAS_ENABLE_CPU_TRACING=true cargo run` | Same output, no panics |
+| Console output from both systems | `cargo run` | `system_a` and `system_b` log lines on stdout (spans silently dropped — CPU tracing disabled by default) |
+| Spans collected with CPU tracing | `MICROMEGAS_ENABLE_CPU_TRACING=true cargo run` | Same output, no panics, spans active on worker threads |
 
 ---
 
@@ -298,7 +315,7 @@ mod tests {
 
 If all criteria pass:
 - Micromegas logs and metrics work from any Bevy worker thread (global mutex channels)
-- Micromegas spans work from Bevy worker threads when `ComputeTaskPool` is pre-initialized with thread callbacks
+- Micromegas spans work from Bevy worker threads when `ComputeTaskPool` is pre-initialized with thread callbacks **and** `cpu_tracing_enabled` is `true` (via `MICROMEGAS_ENABLE_CPU_TRACING=true` env var or builder config)
 - Spans fail gracefully (silent drop) without thread init — no defensive coding needed in systems
 - The `TelemetryGuardBuilder` + `ComputeTaskPool` pre-init pattern is the correct initialization sequence for the full game
 
