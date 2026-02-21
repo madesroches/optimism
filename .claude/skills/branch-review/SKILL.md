@@ -1,37 +1,21 @@
 ---
 name: branch-review
-description: Code review the current branch or recent commits with verified issues only
-argument-hint: "[base-branch or commit range, e.g. HEAD~5]"
+description: Code review the current branch with verified issues only
+argument-hint: "[base-branch]"
 allowed-tools: Bash(git *), Bash(clip.exe *)
 ---
 
 # Code Review — Verified Issues Only
 
-Review code changes with verified issues only.
-
-**Scope:** Determined by `$ARGUMENTS`:
-- If a branch name is given (e.g. `main`), review `<base>..HEAD`
-- If a commit range is given (e.g. `HEAD~5`), review that range
-- If empty and on `main`, review all uncommitted changes (staged + unstaged)
-- If empty and on a feature branch, review against `main`
+Review the current branch against `$ARGUMENTS` (default: `main`).
 
 ## Process
 
 ### Phase 1: Gather context
 
-Determine the review scope per the rules above, then:
-
-**If reviewing a branch or commit range:**
 1. `git log --oneline <base>..HEAD` — list commits
 2. `git diff <base>..HEAD --stat` — file summary
 3. `git diff <base>..HEAD` — full diff
-
-**If reviewing uncommitted changes on main:**
-1. `git status` — overview of changes
-2. `git diff --stat` — unstaged file summary
-3. `git diff` — unstaged diff
-4. `git diff --cached --stat` — staged file summary
-5. `git diff --cached` — staged diff
 
 ### Phase 2: Identify candidate issues
 
