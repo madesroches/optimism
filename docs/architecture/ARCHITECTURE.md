@@ -16,16 +16,21 @@ This document describes the technical architecture for Optimism, a Pac-Man-inspi
 [dependencies]
 bevy = "0.18"
 avian2d = "0.5"
-bevy_kira_audio = "0.25"
+bevy_kira_audio = "0.24"
 bevy_asset_loader = "0.25.0-rc.1"  # stable 0.25 not yet published as of Feb 2026
 micromegas = "0.14"
 micromegas-tracing = "0.14"
+pathfinding = "4"
 rand = "0.8"
 ```
 
 ### Why Avian2D over bevy_rapier2d
 
 Avian is ECS-native (no dual-world sync), its source is readable (good for a tutorial), and it's the recommended choice for new Bevy projects. We use it lightly — grid-based collision handles gameplay logic; Avian provides wall colliders and sensor triggers as a fallback safety net.
+
+### Why pathfinding crate
+
+Soldier and Slaver enemies use A* pathfinding. The `pathfinding` crate provides a battle-tested `astar()` function that works directly on grid coordinates. Rolling a custom A* is ~100-150 lines and a distraction from the tutorial focus.
 
 ### Why bevy_asset_loader
 
@@ -105,7 +110,7 @@ This gives us:
 
 ### Sprite categories
 
-**Candide** — A base sprite with overlay layers for each collected luxury item. When Candide picks up a gold grill, chain, Rolex, etc., the corresponding overlay is composited onto his sprite at runtime. The fur coat doubles sprite width.
+**Candide** — Pre-composed sprite variants generated at startup, all the same tile-sized dimensions. The base sprite plus one variant per luxury item state (7 total: bare, grill, chain, Rolex, goblet, fur coat, gold toilet). Each variant bakes the luxury item overlay into the sprite at generation time. When Candide collects an item, the game swaps his sprite handle to the corresponding pre-composed variant. This avoids runtime pixel-buffer compositing and keeps collision/layout uniform.
 
 **Enemies** — Color-tinted variants of a base ghost/figure shape. Red (Soldier), Purple (Inquisitor), Yellow (Thief), Green (Slaver). A "frightened" variant uses a shared blue/white palette.
 
@@ -440,7 +445,68 @@ Music selection is driven by `CurrentLevel`. SFX playback listens for the same e
 
 ---
 
-## 12. Implementation Order
+## 12. Testing Strategy
+
+This game is AI-generated. Every system gets automated tests. No exceptions.
+
+### Principle
+
+Each implementation step produces tests alongside code. Tests run in CI and are the primary verification mechanism — manual playtesting is secondary. If a system can't be tested automatically, redesign it until it can.
+
+### Test infrastructure
+
+```toml
+[dev-dependencies]
+# Bevy's built-in test utilities (MinimalPlugins, etc.)
+# No additional test framework needed beyond cargo test
+```
+
+Bevy systems are testable by constructing a minimal `World`/`App`, inserting components and resources, running the system, and asserting on the resulting state. No window or renderer needed.
+
+### What to test per system
+
+| System | Test coverage | Approach |
+|--------|--------------|----------|
+| **Maze parsing** | Every tile type parsed correctly; malformed maps produce errors; entity counts match expected | Load map string → run `MazePlugin` setup → assert `GridPosition`, `Wall`, `Money`, spawn marker entities |
+| **Grid movement** | Cannot move into walls; moves update `GridPosition`; `MoveLerp` created correctly | Insert player + walls into `World` → run movement system → assert position |
+| **Player input** | Direction mapping; queued input buffering | Simulate `ButtonInput<KeyCode>` → run input system → assert `MoveDirection` |
+| **Collectibles** | Money increments score; all money collected triggers `LevelComplete`; weapon pickup sets `ActiveWeapon` + `WeaponTimer` | Insert player + collectibles at same `GridPosition` → run collection system → assert `Score`, state changes |
+| **Enemy AI** | Soldier A* finds shortest path; Inquisitor targets ahead of player; Thief biases toward player at close range; Slaver pathfinds correctly | Construct small test mazes → run AI function → assert target `GridPosition` / `MoveDirection` |
+| **Combat** | Weapon active + enemy contact = enemy killed + `Respawning`; no weapon + enemy contact = player death; Slaver teleports instead of killing | Set up combat scenarios → run combat system → assert outcomes |
+| **Frightened mode** | Weapon pickup adds `Frightened` to all enemies; timer expiry removes it; frightened enemies flee from player | Insert entities with/without `Frightened` → run AI → assert flee direction |
+| **Narration** | Correct trigger → quote displayed; no repeat of last quote; Garden level suppresses quotes | Fire `NarrationTrigger` event → run narration system → assert UI entity spawned with expected text |
+| **Level progression** | Level config maps correctly; speed multiplier increases; weapon duration decreases; Garden level has no enemies | Assert `LevelConfig` values for each level range |
+| **Sprite generation** | Buffers have correct dimensions; no panics on generation; color values in expected ranges | Run procgen functions → assert `Image` dimensions and sample pixel values |
+| **State transitions** | `Loading` → `MainMenu` → `InGame` → `GameOver` flow; `PlayingState` substates transition correctly | Drive state machine → assert current state after each transition |
+| **Telemetry** | Micromegas macros don't panic; metrics emit expected values | Run instrumented systems → assert no panics (telemetry output verified by log inspection) |
+
+### Test organization
+
+```
+src/
+├── plugins/
+│   ├── maze.rs          # #[cfg(test)] mod tests at bottom
+│   ├── player.rs        # #[cfg(test)] mod tests at bottom
+│   ├── enemies.rs       # #[cfg(test)] mod tests at bottom
+│   └── ...
+├── ai/
+│   ├── soldier.rs       # #[cfg(test)] mod tests at bottom
+│   └── ...
+tests/
+├── integration/
+│   ├── level_flow.rs    # Full level lifecycle: load → play → complete
+│   └── combat.rs        # Multi-entity combat scenarios
+```
+
+Unit tests live in each module (`#[cfg(test)] mod tests`). Integration tests in `tests/` exercise cross-plugin interactions.
+
+### CI gate
+
+`cargo test` must pass before any implementation step is considered complete. `cargo clippy -- -D warnings` enforces code quality.
+
+---
+
+## 13. Implementation Order
 
 1. Scaffold Cargo project + Bevy app with states and camera
 2. Procedural sprite generation (basic shapes)
@@ -457,20 +523,20 @@ Music selection is driven by `CurrentLevel`. SFX playback listens for the same e
 13. Level progression + game over flow
 14. Polish: animations, screen shake, visual effects
 
-Telemetry instrumentation (step 12) is listed as a discrete step but in practice should be added incrementally as each system is built — this makes the tutorial narrative more natural.
+Every step produces tests alongside code. Telemetry instrumentation (step 12) is listed as a discrete step but in practice should be added incrementally as each system is built.
 
 ---
 
-## 13. Verification Checklist
+## 14. Manual Verification Checklist
 
-- `cargo build` compiles cleanly at each implementation step
+These supplement automated tests — they cover visual/audio correctness that unit tests cannot:
+
 - `cargo run` launches the game window with a visible maze and player
 - Player can navigate the maze with arrow keys
 - Enemies move according to their AI type
-- Money collection increments score; collecting all money completes the level
 - Weapons activate frightened mode and allow enemy kills
-- Luxury items modify Candide's sprite and increase Thief speed
+- Luxury items modify Candide's sprite
 - Pangloss quotes appear on game events
-- Game over screen shows stats
+- Audio plays correctly
 - Micromegas telemetry appears in logs
 - `MICROMEGAS_ENABLE_CPU_TRACING=1 cargo run` produces span traces

@@ -48,7 +48,7 @@ Collecting a luxury item makes **the Thief faster** for the rest of the level. M
 | 3-4 | **Big chain necklace** | Comically oversized, drags on the floor behind him |
 | 5-6 | **Rolex** | Gleams on his wrist |
 | 7-8 | **Jewel-encrusted goblet** | Carries it above his head like a trophy |
-| 9-10 | **Fur coat** | Sprite doubles in width. Harder to navigate the maze. |
+| 9-10 | **Fur coat** | Big fluffy coat drawn within the same tile frame. Absurdly puffy. |
 | 11+ | **Gold toilet** | Peak kétaine. No justification. It just sits there glowing and you risk your life for it. |
 
 ---
