@@ -43,11 +43,11 @@ use bevy::tasks::{ComputeTaskPool, TaskPoolBuilder};
 ComputeTaskPool::get_or_init(|| {
     TaskPoolBuilder::new()
         .on_thread_spawn(|| {
-            micromegas_tracing::dispatch::init_thread_stream();
+            micromegas::tracing::dispatch::init_thread_stream();
         })
         .on_thread_destroy(|| {
-            micromegas_tracing::dispatch::flush_thread_buffer();
-            micromegas_tracing::dispatch::unregister_thread_stream();
+            micromegas::tracing::dispatch::flush_thread_buffer();
+            micromegas::tracing::dispatch::unregister_thread_stream();
         })
         .build()
 });
