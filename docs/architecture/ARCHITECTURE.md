@@ -15,7 +15,6 @@ This document describes the technical architecture for Optimism, a Pac-Man-inspi
 ```toml
 [dependencies]
 bevy = "0.18"
-bevy_ecs_tilemap = "0.18"
 avian2d = "0.5"
 bevy_kira_audio = "0.24"
 bevy_asset_loader = "0.25.0-rc.1"  # stable 0.25 not yet published as of Feb 2026
@@ -27,10 +26,6 @@ rand = "0.8"
 ### Why Avian2D over bevy_rapier2d
 
 Avian is ECS-native (no dual-world sync), its source is readable (good for a tutorial), and it's the recommended choice for new Bevy projects. We use it lightly — grid-based collision handles gameplay logic; Avian provides wall colliders and sensor triggers as a fallback safety net.
-
-### Why bevy_ecs_tilemap
-
-Mazes are defined as Tiled `.tmx` files. `bevy_ecs_tilemap` handles rendering tile layers efficiently and gives us per-tile ECS entities for collision queries.
 
 ### Why bevy_asset_loader
 
@@ -50,7 +45,7 @@ optimism/
 │   ├── audio/
 │   │   ├── music/                       # AI-generated harpsichord tracks
 │   │   └── sfx/                         # AI-generated sound effects
-│   ├── maps/                            # Tiled-format .tmx maze definitions
+│   ├── maps/                            # Plain text maze definitions (.txt)
 │   └── fonts/                           # Pixel font for Pangloss quotes
 ├── src/
 │   ├── main.rs                          # Entry point, Micromegas init
@@ -60,7 +55,7 @@ optimism/
 │   ├── resources.rs                     # Game-wide resources
 │   ├── plugins/
 │   │   ├── mod.rs
-│   │   ├── maze.rs                      # MazePlugin — tilemap loading, wall colliders
+│   │   ├── maze.rs                      # MazePlugin — maze parsing, wall colliders
 │   │   ├── player.rs                    # PlayerPlugin — Candide movement, input
 │   │   ├── enemies.rs                   # EnemyPlugin — 4 AI behaviors
 │   │   ├── collectibles.rs             # CollectiblePlugin — money, weapons, luxury items
@@ -137,6 +132,7 @@ enum AppState {
 #[derive(SubStates, Clone, Eq, PartialEq, Debug, Hash)]
 #[source(AppState = AppState::InGame)]
 enum PlayingState {
+    #[default]
     LevelIntro,      // "Level X" screen with Pangloss quote
     Playing,         // Active gameplay
     Paused,          // Pause menu
@@ -151,16 +147,16 @@ enum PlayingState {
 ### State transitions
 
 ```
-Loading → MainMenu → InGame
-                        ├── LevelIntro → Playing ⇄ Paused
-                        │                  ↓
-                        │              PlayerDeath → Playing (lives > 0)
-                        │                  ↓
-                        │              GameOver (lives == 0)
-                        │                  ↓
-                        │              MainMenu
-                        │
-                        └── Playing → LevelComplete → LevelTransition → LevelIntro
+Loading → MainMenu → InGame → GameOver → MainMenu
+
+InGame substates (PlayingState):
+  LevelIntro → Playing ⇄ Paused
+                  ↓
+              PlayerDeath → Playing (lives > 0)
+                  ↓ (lives == 0)
+              [exits InGame → AppState::GameOver]
+
+  Playing → LevelComplete → LevelTransition → LevelIntro
 ```
 
 ---
@@ -285,9 +281,46 @@ When the player picks up a weapon (`ActiveWeapon` becomes `Some`):
 
 ### Level definitions
 
-Levels are Tiled `.tmx` files stored in `assets/maps/`. Each file defines:
-- **Tile layers:** walls, floor, money positions
-- **Object layers:** player spawn, enemy spawn points, weapon spawn, luxury item spawn
+Levels are plain text files stored in `assets/maps/`. Each file is a grid of ASCII characters:
+
+```
+############################
+#............##............#
+#.####.#####.##.#####.####.#
+#.####.#####.##.#####.####.#
+#..........................#
+#.####.##.########.##.####.#
+#......##....##....##......#
+######.##### ## #####.######
+     #.#   G    G #.#
+######.# ###--### #.######
+      .  #        #  .
+######.# ########## #.######
+     #.#            #.#
+######.# ########## #.######
+#............##............#
+#.####.#####.##.#####.####.#
+#...##.......P .......##...#
+###.##.##.########.##.##.###
+#......##....##....##......#
+#.##########.##.##########.#
+#..........................#
+############################
+```
+
+Character legend:
+- `#` — wall
+- `.` — money dot
+- ` ` — empty floor
+- `P` — player spawn
+- `G` — enemy spawn (one per enemy)
+- `W` — weapon spawn
+- `L` — luxury item spawn
+- `-` — enemy pen gate
+
+The `MazePlugin` parses these files at level load, spawning ECS entities for each tile.
+
+Luxury items appear twice per level at the `L` spawn point. Each appearance is temporary — the item despawns after a configurable timeout if not collected.
 
 ### Level config mapping
 
@@ -351,8 +384,8 @@ The telemetry guard is initialized before the Bevy app starts, ensuring all syst
 
 ```rust
 span_scope!("frame");
-fmetric!("frame_time_ms", dt.as_secs_f64() * 1000.0);
-imetric!("entity_count", world.entities().len());
+fmetric!("frame_time_ms", "ms", dt.as_secs_f64() * 1000.0);
+imetric!("entity_count", "count", world.entities().len());
 ```
 
 This plugin demonstrates the baseline: wrapping the game loop and emitting per-frame performance metrics.
@@ -363,13 +396,13 @@ Each plugin includes telemetry calls that demonstrate a specific instrumentation
 
 | Plugin | Instrumentation | What It Teaches |
 |--------|----------------|-----------------|
-| `player.rs` | `span_scope!("player_movement")`, `info!("player_moved", direction)` | Tracing system execution, structured logging |
-| `enemies.rs` | `span_scope!("enemy_ai")` per enemy, `imetric!("ai_path_length", path.len())` | Per-entity spans, performance metrics |
-| `collectibles.rs` | `info!("money_collected", score)`, `imetric!("score", score)` | Event logging, gameplay metrics |
-| `combat.rs` | `info!("enemy_killed", weapon, enemy_type)`, `imetric!("kills", 1)` | Structured event data |
+| `player.rs` | `span_scope!("player_movement")`, `info!("player_moved: {:?}", direction)` | Tracing system execution, structured logging |
+| `enemies.rs` | `span_scope!("enemy_ai")` per enemy, `imetric!("ai_path_length", "tiles", path.len())` | Per-entity spans, performance metrics |
+| `collectibles.rs` | `info!("money_collected: {}", score)`, `imetric!("score", "points", score)` | Event logging, gameplay metrics |
+| `combat.rs` | `info!("enemy_killed: {:?} by {:?}", enemy_type, weapon)`, `imetric!("kills", "count", 1)` | Structured event data |
 | `narration.rs` | `span_scope!("narration_display")` | UI system tracing |
-| `maze.rs` | `span_scope!("maze_load")`, `fmetric!("maze_load_ms", ...)` | Asset loading performance |
-| `app_state.rs` | `info!("state_change", from, to)` | Lifecycle events |
+| `maze.rs` | `span_scope!("maze_load")`, `fmetric!("maze_load_ms", "ms", elapsed.as_secs_f64() * 1000.0)` | Asset loading performance |
+| `app_state.rs` | `info!("state_change: {:?} -> {:?}", from, to)` | Lifecycle events |
 
 ### Running with telemetry
 
@@ -409,7 +442,7 @@ Music selection is driven by `CurrentLevel`. SFX playback listens for the same e
 
 1. Scaffold Cargo project + Bevy app with states and camera
 2. Procedural sprite generation (basic shapes)
-3. Grid movement system + maze loading from Tiled
+3. Grid movement system + maze loading from plain text files
 4. Player input and movement
 5. Money collection + score
 6. Enemy spawning + AI (one type at a time)
