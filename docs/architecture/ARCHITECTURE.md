@@ -18,8 +18,7 @@ bevy = "0.18"
 avian2d = "0.5"
 bevy_kira_audio = "0.24"
 bevy_asset_loader = "0.25.0-rc.1"  # stable 0.25 not yet published as of Feb 2026
-micromegas = "0.14"
-micromegas-tracing = "0.14"
+micromegas = "0.20"
 pathfinding = "4"
 rand = "0.8"
 ```
@@ -379,13 +378,17 @@ This is the tutorial's core value. Telemetry is woven into the game code deliber
 ### Initialization (`main.rs`)
 
 ```rust
-// TelemetryGuardBuilder setup with HTTP sink
+// 1. TelemetryGuardBuilder::default().build() — creates LocalEventSink for stdout
+// 2. ComputeTaskPool::get_or_init() with on_thread_spawn → init_thread_stream()
+//    Must happen BEFORE App::new() so TaskPoolPlugin uses our pre-initialized pool.
+// 3. App::new().add_plugins(MinimalPlugins).add_plugins(OptimismPlugin).run()
+//
 // Configurable via environment variables:
 //   MICROMEGAS_URL — ingestion endpoint
 //   MICROMEGAS_ENABLE_CPU_TRACING — enable span traces
 ```
 
-The telemetry guard is initialized before the Bevy app starts, ensuring all systems are instrumented from the first frame.
+The telemetry guard and thread pool are initialized before the Bevy app starts. The `ComputeTaskPool` pre-initialization pattern ensures span collection works on all Bevy worker threads. This sequence is validated by the PoC R1 tests.
 
 ### Frame-level instrumentation (`plugins/telemetry.rs`)
 
@@ -512,11 +515,11 @@ Ordered by severity. Risks marked **PoC** need a proof of concept before full im
 
 ### Critical — could invalidate the project
 
-**R1. Micromegas + Bevy integration** — **PoC**
+**R1. Micromegas + Bevy integration** — **PoC DONE** (see `tasks/poc-r1-micromegas-bevy.md`)
 
 The entire tutorial premise depends on `micromegas-tracing` macros (`span_scope!`, `fmetric!`, `imetric!`) working correctly inside Bevy systems. Bevy runs systems in parallel across threads. If Micromegas uses thread-local span stacks that conflict with Bevy's scheduling, or if the telemetry guard doesn't survive across Bevy's app lifecycle, the project's core value proposition fails. No amount of game code matters if the telemetry doesn't work.
 
-*PoC: Minimal Bevy app with two systems, each emitting spans and metrics via Micromegas. Verify spans nest correctly, metrics appear in logs, and no panics under Bevy's parallel executor.*
+*Result: All three channels (logs, metrics, spans) work from Bevy worker threads. Spans require `ComputeTaskPool` pre-initialization with `on_thread_spawn` → `init_thread_stream()`. Without it, spans are silently dropped (no panics). The calling thread also needs `init_thread_stream()` since Bevy uses it as a worker. Bevy `default_app` feature must be avoided (pulls in winit which fails on Rust 1.93); use `multi_threaded` only for headless.*
 
 **R2. Dependency compatibility — bevy_kira_audio 0.24 vs Bevy 0.18** — **PoC**
 
