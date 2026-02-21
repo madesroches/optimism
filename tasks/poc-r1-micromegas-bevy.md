@@ -74,7 +74,9 @@ optimism/
 ├── Cargo.toml
 ├── src/
 │   ├── main.rs    # Micromegas init + ComputeTaskPool pre-init + Bevy app
-│   └── lib.rs     # OptimismPlugin with two parallel PoC systems + tests
+│   └── lib.rs     # OptimismPlugin with two parallel PoC systems
+└── tests/
+    └── telemetry_integration.rs   # 3 integration tests (serial, InMemorySink)
 ```
 
 ---
@@ -177,124 +179,142 @@ fn system_b(time: Res<Time>) {
     imetric!("system_b_tick", "count", 1);
     info!("system_b: dt={:.2}ms", dt_ms);
 }
+```
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use bevy::app::ScheduleRunnerPlugin;
-    use bevy::tasks::{ComputeTaskPool, TaskPoolBuilder};
-    use micromegas_tracing::dispatch::init_thread_stream;
-    use micromegas_tracing::test_utils::init_in_memory_tracing;
-    use serial_test::serial;
-    use std::time::Duration;
+### `tests/telemetry_integration.rs`
 
-    /// Test 1: Micromegas macros don't panic when called from Bevy systems
-    /// running on the parallel executor, and span events are actually collected.
-    #[test]
-    #[serial]
-    fn micromegas_macros_dont_panic_in_bevy_systems() {
-        let guard = init_in_memory_tracing();
+```rust
+use bevy::prelude::*;
+use bevy::app::ScheduleRunnerPlugin;
+use bevy::tasks::{ComputeTaskPool, TaskPoolBuilder};
+use micromegas_tracing::dispatch::{
+    flush_log_buffer, flush_metrics_buffer, flush_thread_buffer, init_thread_stream,
+};
+use micromegas_tracing::prelude::*;
+use micromegas_tracing::test_utils::init_in_memory_tracing;
+use optimism::OptimismPlugin;
+use serial_test::serial;
+use std::time::Duration;
 
-        // Pre-init thread pool with Micromegas callbacks
-        ComputeTaskPool::get_or_init(|| {
-            TaskPoolBuilder::new()
-                .on_thread_spawn(|| { init_thread_stream(); })
-                .on_thread_destroy(|| {
-                    micromegas_tracing::dispatch::flush_thread_buffer();
-                    micromegas_tracing::dispatch::unregister_thread_stream();
-                })
-                .build()
-        });
+/// Test 1: Micromegas macros don't panic when called from Bevy systems
+/// running on the parallel executor, and span events are actually collected.
+#[test]
+#[serial]
+fn micromegas_macros_dont_panic_in_bevy_systems() {
+    let guard = init_in_memory_tracing();
 
-        // Run for ~5 frames then exit
-        let mut frame_count = 0u32;
-        App::new()
-            .add_plugins(MinimalPlugins.set(
-                ScheduleRunnerPlugin::run_loop(Duration::from_millis(16))
-            ))
-            .add_plugins(OptimismPlugin)
-            .add_systems(Update, move |mut exit: EventWriter<AppExit>| {
-                frame_count += 1;
-                if frame_count >= 5 {
-                    exit.send(AppExit::Success);
-                }
+    // Pre-init thread pool with Micromegas callbacks
+    ComputeTaskPool::get_or_init(|| {
+        TaskPoolBuilder::new()
+            .on_thread_spawn(|| { init_thread_stream(); })
+            .on_thread_destroy(|| {
+                flush_thread_buffer();
+                micromegas_tracing::dispatch::unregister_thread_stream();
             })
-            .run();
+            .build()
+    });
 
-        // Flush span buffers from pool threads — events stay in thread-local
-        // buffers until explicitly flushed (buffer is sized in bytes and won't
-        // auto-flush after only ~20 small events). flush_thread_buffer() flushes
-        // the CURRENT thread's local buffer, so we must run it on each worker.
-        let pool = ComputeTaskPool::get();
-        pool.scope(|s| {
-            for _ in 0..pool.thread_num() {
-                s.spawn(async { micromegas_tracing::dispatch::flush_thread_buffer(); });
+    // Run for ~5 frames then exit
+    let mut frame_count = 0u32;
+    App::new()
+        .add_plugins(MinimalPlugins.set(
+            ScheduleRunnerPlugin::run_loop(Duration::from_millis(16))
+        ))
+        .add_plugins(OptimismPlugin)
+        .add_systems(Update, move |mut exit: EventWriter<AppExit>| {
+            frame_count += 1;
+            if frame_count >= 5 {
+                exit.send(AppExit::Success);
             }
-        });
+        })
+        .run();
 
-        let sink = &guard.sink;
-        // 2 systems x 5 frames = at least 10 log events
-        assert!(sink.total_log_events() >= 10,
-            "expected >= 10 log events, got {}", sink.total_log_events());
-        // 2 systems x 2 metrics x 5 frames = at least 20
-        assert!(sink.total_metrics_events() >= 20,
-            "expected >= 20 metrics events, got {}", sink.total_metrics_events());
-        // 2 systems x 2 span events (begin+end) x 5 frames = at least 20
-        assert!(sink.total_thread_events() >= 20,
-            "expected >= 20 span events, got {}", sink.total_thread_events());
-    }
-
-    /// Test 2: Spans are silently dropped without per-thread init.
-    /// This confirms the safety guarantee — no panics, just silent no-ops.
-    #[test]
-    #[serial]
-    fn spans_silently_dropped_without_thread_init() {
-        let guard = init_in_memory_tracing();
-
-        // Do NOT call init_thread_stream()
-        {
-            span_scope!("test_span");
-            info!("this log should work");
+    // Flush span buffers from pool threads — events stay in thread-local
+    // buffers until explicitly flushed (buffer is sized in bytes and won't
+    // auto-flush after only ~20 small events). flush_thread_buffer() flushes
+    // the CURRENT thread's local buffer, so we must run it on each worker.
+    let pool = ComputeTaskPool::get();
+    pool.scope(|s| {
+        for _ in 0..pool.thread_num() {
+            s.spawn(async { flush_thread_buffer(); });
         }
+    });
 
-        let sink = &guard.sink;
-        assert!(sink.total_log_events() >= 1,
-            "logs should work without thread init");
-        assert_eq!(sink.total_thread_events(), 0,
-            "spans should be silently dropped without thread init");
+    // Flush log and metrics buffers — InMemorySink counts events from flushed
+    // blocks only (total_log_events/total_metrics_events iterate over block
+    // vectors). The 1024-byte test buffers won't auto-flush with only ~10 log
+    // and ~20 metric events, so we must flush explicitly.
+    flush_log_buffer();
+    flush_metrics_buffer();
+
+    let sink = &guard.sink;
+    // 2 systems x 5 frames = at least 10 log events
+    assert!(sink.total_log_events() >= 10,
+        "expected >= 10 log events, got {}", sink.total_log_events());
+    // 2 systems x 2 metrics x 5 frames = at least 20
+    assert!(sink.total_metrics_events() >= 20,
+        "expected >= 20 metrics events, got {}", sink.total_metrics_events());
+    // 2 systems x 2 span events (begin+end) x 5 frames = at least 20
+    assert!(sink.total_thread_events() >= 20,
+        "expected >= 20 span events, got {}", sink.total_thread_events());
+}
+
+/// Test 2: Spans are silently dropped without per-thread init.
+/// This confirms the safety guarantee — no panics, just silent no-ops.
+#[test]
+#[serial]
+fn spans_silently_dropped_without_thread_init() {
+    let guard = init_in_memory_tracing();
+
+    // Do NOT call init_thread_stream()
+    {
+        span_scope!("test_span");
+        info!("this log should work");
     }
 
-    /// Test 3: Logs and metrics work from any thread without init_thread_stream().
-    /// Only spans require per-thread setup.
-    #[test]
-    #[serial]
-    fn logs_and_metrics_work_from_any_thread() {
-        let guard = init_in_memory_tracing();
+    flush_log_buffer();
 
-        let handles: Vec<_> = (0..4).map(|i| {
-            std::thread::spawn(move || {
-                // No init_thread_stream() — these should still work
-                info!("thread {} reporting", i);
-                imetric!("thread_tick", "count", 1);
-                fmetric!("thread_value", "units", i as f64);
-            })
-        }).collect();
+    let sink = &guard.sink;
+    assert!(sink.total_log_events() >= 1,
+        "logs should work without thread init");
+    assert_eq!(sink.total_thread_events(), 0,
+        "spans should be silently dropped without thread init");
+}
 
-        for h in handles {
-            h.join().unwrap();
-        }
+/// Test 3: Logs and metrics work from any thread without init_thread_stream().
+/// Only spans require per-thread setup.
+#[test]
+#[serial]
+fn logs_and_metrics_work_from_any_thread() {
+    let guard = init_in_memory_tracing();
 
-        let sink = &guard.sink;
-        assert!(sink.total_log_events() >= 4,
-            "expected >= 4 log events from threads, got {}", sink.total_log_events());
-        assert!(sink.total_metrics_events() >= 8,
-            "expected >= 8 metrics events from threads, got {}", sink.total_metrics_events());
+    let handles: Vec<_> = (0..4).map(|i| {
+        std::thread::spawn(move || {
+            // No init_thread_stream() — these should still work
+            info!("thread {} reporting", i);
+            imetric!("thread_tick", "count", 1);
+            fmetric!("thread_value", "units", i as f64);
+        })
+    }).collect();
+
+    for h in handles {
+        h.join().unwrap();
     }
+
+    flush_log_buffer();
+    flush_metrics_buffer();
+
+    let sink = &guard.sink;
+    assert!(sink.total_log_events() >= 4,
+        "expected >= 4 log events from threads, got {}", sink.total_log_events());
+    assert!(sink.total_metrics_events() >= 8,
+        "expected >= 8 metrics events from threads, got {}", sink.total_metrics_events());
 }
 ```
 
 ### Test implementation notes
 
+- **Flush before assert**: `InMemorySink` counts events from flushed blocks only (`total_log_events()` iterates `log_blocks`, not the live stream buffer). The test buffers (1024 bytes) won't auto-flush with small event counts, so `flush_log_buffer()` and `flush_metrics_buffer()` must be called explicitly before assertions. Thread (span) buffers are flushed per-worker via `pool.scope`.
 - Use `>=` not `==` in assertions: `ComputeTaskPool::get_or_init` is idempotent across tests, but thread streams from the first test may be stale in subsequent tests since `on_thread_spawn` only fires once per thread lifetime.
 - The frame counter in test 1 may need adjustment — Bevy's `Update` schedule runs once per `ScheduleRunnerPlugin` tick, but the exact count depends on timing. Using `>=` handles this.
 - `InMemoryTracingGuard` drops at end of each test, calling `force_uninit()` to reset global dispatch state for the next test.
