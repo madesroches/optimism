@@ -37,7 +37,7 @@ The implementation is split into 7 phases. Each phase produces a testable, runna
 Replace the placeholder `OptimismPlugin` with the real game structure. Get a window open with a camera and state machine driving transitions.
 
 **Steps:**
-1. Create `src/app_state.rs` — `AppState` enum (Loading, MainMenu, InGame, GameOver) + `PlayingState` SubStates enum (LevelIntro, Playing, Paused, PlayerDeath, LevelComplete, LevelTransition)
+1. Create `src/app_state.rs` — `AppState` enum (Loading, MainMenu, InGame, GameOver) + `PlayingState` SubStates enum with `#[default] LevelIntro` (LevelIntro, Playing, Paused, PlayerDeath, LevelComplete, LevelTransition)
 2. Create `src/components.rs` — Start with `GridPosition { x: i32, y: i32 }`, `Player`, `Enemy`, `Wall`, `Money` marker components. Add more as needed in later phases.
 3. Create `src/resources.rs` — `Score(u64)`, `CurrentLevel(u32)`, `Lives(u32)`, `LevelConfig`
 4. Update `src/lib.rs` — Replace demo systems with real `OptimismPlugin` that adds states, camera, `SpriteSheetPlugin`, and sub-plugins for each phase
@@ -69,15 +69,16 @@ Parse ASCII map files into ECS entities. Render walls and floors using colored r
 1. Create `assets/maps/level_01.txt` — First maze using the ASCII format from the architecture doc
 2. Create `src/plugins/maze.rs` — `MazePlugin`:
    - `MazeMap` resource: 2D grid storing tile types, walkability lookup, spawn positions
-   - `load_maze` system (runs `OnEnter(PlayingState::LevelIntro)`): parse text file, spawn `Wall` entities with `GridPosition` + `Sprite::from_color()` (colored rectangles — Bevy 0.18 uses required components, not bundles), spawn `Money` dot entities, record `PlayerSpawn`/`EnemySpawn`/`WeaponSpawn`/`LuxurySpawn` positions
+   - `load_maze` system (runs `OnEnter(PlayingState::LevelIntro)`): parse text file, spawn `Wall` entities with `GridPosition` + `Sprite::from_color()` (colored rectangles — Bevy 0.18 uses required components, not bundles), spawn `Money` dot entities, record `PlayerSpawn`/`EnemySpawn`/`WeaponSpawn`/`LuxurySpawn` positions. Parse `-` tiles as `PenGate` entities — walkable for enemies but not for the player (see Phase 4 for pen release mechanics). Render gates as a distinct color (e.g., dark pink) to visually distinguish them from walls and floors.
    - `TILE_SIZE` constant (e.g., 64.0) for grid-to-world coordinate conversion
    - `grid_to_world(GridPosition) -> Vec2` helper
 3. Wire into camera: auto-center and scale camera to fit the maze dimensions
 4. Add a temporary `auto_start_level` system (runs `OnEnter(PlayingState::LevelIntro)`): immediately transitions to `PlayingState::Playing` after maze load completes. This is a development shim so Phases 2–6 are playable with `cargo run`. Phase 7 replaces it with the real level intro screen (show "Level X" + Pangloss quote, then transition on timer/input).
+5. **System ordering**: All `OnEnter(PlayingState::LevelIntro)` systems across phases must be explicitly ordered. `load_maze` runs first (it populates `MazeMap`), then `spawn_player` and `spawn_enemies` (added in later phases) run `.after(load_maze)`, then `auto_start_level` runs last via `.after(spawn_player)`. Register ordering in each plugin's `build()` using `.after()`/`.chain()` constraints.
 
 **Tests:**
 - Parse a small test maze string → correct entity counts (walls, dots, spawns)
-- `MazeMap` walkability: walls are not walkable, dots/empty are
+- `MazeMap` walkability: walls are not walkable, dots/empty are, pen gates are walkable for enemies only
 - `grid_to_world` round-trips correctly
 - Malformed maps produce errors, not panics
 
@@ -103,7 +104,7 @@ Get Candide moving through the maze with arrow keys. This is the core movement s
    - `movement_interpolation` system: advance `MoveLerp::t`, update `Transform`. When `t >= 1.0`, snap to target and remove `MoveLerp`.
    - Pac-Man-style cornering: buffer one input ahead so direction changes feel responsive
 2. Create `src/plugins/player.rs` — `PlayerPlugin`:
-   - `spawn_player` system (runs `OnEnter(PlayingState::LevelIntro)`): spawn Candide at `PlayerSpawn` position with sprite sheet, `Player` marker, `GridPosition`, `MoveSpeed`, `FacingDirection`. Spawns once per level alongside the maze — the death/respawn flow resets positions without re-spawning (see Phase 4).
+   - `spawn_player` system (runs `OnEnter(PlayingState::LevelIntro)`, ordered `.after(load_maze)`): spawn Candide at `PlayerSpawn` position with sprite sheet, `Player` marker, `GridPosition`, `MoveSpeed`, `FacingDirection`. Spawns once per level alongside the maze — the death/respawn flow resets positions without re-spawning (see Phase 4).
    - `player_input` system: read `ButtonInput<KeyCode>`, set `InputDirection` on player entity
    - `player_input_to_direction` system: convert buffered `InputDirection` into `MoveDirection` when the player arrives at a tile (no active lerp)
 3. Wire sprite animation: add `impl From<Direction> for FacingDirection` to bridge the movement `Direction` enum (in `components.rs`) to the animation `FacingDirection` enum (in `sprites.rs`). Add a `sync_facing_to_animation` system that detects when an entity's `FacingDirection` changes and updates `AnimationState.current` accordingly using `resolve_animation_key`/`set_animation` from `sprites.rs`. The existing `animate_sprites` system only advances frames within the current animation range — it does not read `FacingDirection`, so this bridge system is required to switch between directional animation keys (e.g., `walk_down` → `walk_left`).
@@ -140,11 +141,11 @@ Add the core Pac-Man loop: collect all money to win, enemies chase and kill you.
    - Brute: A* toward player (slowest)
    - All use `pathfinding::prelude::astar` on `MazeMap`'s walkability grid
 3. Create `src/plugins/enemies.rs` — `EnemyPlugin`:
-   - `spawn_enemies` system (runs `OnEnter(PlayingState::LevelIntro)`): spawn 4 enemies at `EnemySpawn` positions with sprite sheets, AI type, `MoveSpeed`. Spawns once per level alongside the maze — not on `OnEnter(Playing)`, to avoid duplicates on death/respawn.
+   - `spawn_enemies` system (runs `OnEnter(PlayingState::LevelIntro)`, ordered `.after(load_maze)`): spawn 4 enemies at `EnemySpawn` positions with sprite sheets, AI type, `MoveSpeed`. All enemies start inside the pen with an `InPen` marker component. Spawns once per level alongside the maze — not on `OnEnter(Playing)`, to avoid duplicates on death/respawn.
    - `enemy_ai` system (runs during `PlayingState::Playing`): for each enemy, call its AI module to get target, set `MoveDirection` toward next step on path
    - `enemy_player_collision` system: when enemy's `GridPosition` matches player's → trigger `PlayerDeath` state, play `death` SFX, decrement `Lives`
    - `handle_player_death` system: if `Lives > 0`, reset player and enemy `GridPosition` to their spawn positions (do NOT re-enter `Playing` via state transition — use `OnEnter(PlayerDeath)` to reset, then transition to `Playing`). If `Lives == 0`, transition to `AppState::GameOver`. Note: because entities are spawned on `OnEnter(LevelIntro)`, re-entering `Playing` after death does not trigger re-spawning.
-   - Enemy pen: enemies start in the central pen, released one at a time on a timer
+   - Enemy pen release: a `PenReleaseTimer` resource ticks during `PlayingState::Playing`. Each tick, the next enemy with an `InPen` marker has it removed, allowing it to move through the `PenGate` tiles and into the maze. Release interval is configurable per level (faster at higher levels). `PenGate` tiles are walkable for entities with `Enemy` but not for `Player` — the `movement_validation` system checks this. Once an enemy exits the pen area, normal AI takes over. Enemies killed during frightened mode respawn back into the pen with `InPen` restored (see Phase 5).
 
 **Tests:**
 - Money collection increments score and despawns entity
@@ -153,6 +154,8 @@ Add the core Pac-Man loop: collect all money to win, enemies chase and kill you.
 - Soldier takes shortest path, Inquisitor targets ahead of player
 - Enemy collision triggers PlayerDeath
 - Lives decrement on death; 0 lives → GameOver
+- Pen release timer releases enemies one at a time
+- PenGate blocks player movement but allows enemy movement
 
 **Files:**
 - `src/plugins/collectibles.rs` (new)
@@ -163,7 +166,7 @@ Add the core Pac-Man loop: collect all money to win, enemies chase and kill you.
 - `src/ai/thief.rs` (new)
 - `src/ai/brute.rs` (new)
 - `src/plugins/mod.rs` (update)
-- `src/components.rs` (update — Enemy, EnemyKind, AiState)
+- `src/components.rs` (update — Enemy, EnemyKind, AiState, InPen, PenGate, PenReleaseTimer)
 
 ---
 
@@ -241,6 +244,7 @@ Wire up the full game loop from menu to game over, with level escalation.
 6. Game over: stats display (score, deaths, kills by weapon type, luxuries collected) — *"The best of possible games... considering..."*
 7. The Garden (level 13): no enemies, no weapons, no narration, small simple maze
 8. Micromegas telemetry: add `span_scope!`, `fmetric!`, `imetric!`, `info!` calls to each plugin per the architecture doc's instrumentation table
+9. Update `docs/architecture/ARCHITECTURE.md`: remove the `procgen/` module from the project structure (Section 2), replace Section 3 (Procedural Art Pipeline) with a description of the Quaternius 3D-to-sprite-sheet pipeline (`tools/render_sprites.py`, `tools/render_all.py`, JSON metadata sidecar format), and update Risk R3 to note the procgen approach was abandoned in favor of pre-rendered sprites
 
 **Tests:**
 - LevelConfig returns correct weapon/luxury/speed for each level range
@@ -255,6 +259,7 @@ Wire up the full game loop from menu to game over, with level escalation.
 - `src/plugins/telemetry.rs` (new — frame instrumentation)
 - `src/plugins/mod.rs` (update)
 - `src/resources.rs` (update — GameStats)
+- `docs/architecture/ARCHITECTURE.md` (update — remove procgen, document Quaternius pipeline, update Risk R3)
 
 ---
 
