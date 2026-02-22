@@ -8,6 +8,9 @@
 # Binary art sources (Blender files, downloaded asset packs)
 /art/
 
+# Secrets
+.env
+
 # Python
 __pycache__/
 *.pyc
