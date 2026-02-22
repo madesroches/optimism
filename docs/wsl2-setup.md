@@ -14,6 +14,22 @@ sudo apt-get install -y \
 - **libxkbcommon-x11-0** — X11 keyboard handling library, required by winit (Bevy's window backend)
 - **mesa-vulkan-drivers** — Software Vulkan renderer (lavapipe), needed because WSL2 doesn't expose host GPU by default
 
+## Audio
+
+WSLg provides a PulseAudio socket at `/mnt/wslg/PulseServer`. Install the PulseAudio client libraries so bevy_kira_audio can output sound:
+
+```bash
+sudo apt-get install -y pulseaudio
+```
+
+Verify audio is working:
+
+```bash
+pactl info
+```
+
+You should see `Server Name: PulseAudio (on PipeWire ...)` or similar. If the socket is missing, ensure WSLg is enabled (Windows 11 / Windows 10 21H2+ with `wsl --update`).
+
 ## GPU Passthrough (Optional)
 
 If you have an NVIDIA GPU on the Windows side, you can skip `mesa-vulkan-drivers` and use hardware-accelerated rendering instead:

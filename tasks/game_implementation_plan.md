@@ -8,11 +8,11 @@ The implementation is split into 7 phases. Each phase produces a testable, runna
 
 ## Current State
 
-**Phases 1–5 COMPLETE.** Phase 6 is next.
+**Phases 1–6 COMPLETE.** Phase 7 is next.
 
 **What exists (Phases 1–5):**
 - `src/main.rs` — Micromegas telemetry init + `ComputeTaskPool` pre-init + `DefaultPlugins` (with x11 window) + `OptimismPlugin`
-- `src/lib.rs` — `OptimismPlugin`: registers all states, plugins (Camera, Maze, Movement, Player, Collectible, Enemy, Combat, SpriteSheet), resources, asset loading, temporary `skip_to_in_game`
+- `src/lib.rs` — `OptimismPlugin`: registers all states, plugins (Camera, Maze, Movement, Player, Collectible, Enemy, Combat, SpriteSheet, GameAudio, Hud, Narration), resources, asset loading, temporary `skip_to_in_game`
 - `src/app_state.rs` — `AppState` (Loading, MainMenu, InGame, GameOver) + `PlayingState` SubStates
 - `src/components.rs` — `GridPosition`, `Direction`, `MoveDirection`, `MoveSpeed`, `InputDirection`, `MoveLerp`, `Player`, `Enemy`, `EnemyKind`, `InPen`, `Wall`, `Money`, `SpawnPosition`
 - `src/resources.rs` — `Score(u64)`, `CurrentLevel(u32)`, `Lives(u32)`, `LevelConfig`, `AudioAssets`
@@ -29,12 +29,13 @@ The implementation is split into 7 phases. Each phase produces a testable, runna
 - `assets/sprites/` — 5 character sprite sheets with JSON metadata
 - `assets/audio/` — 2 music tracks + 5 SFX (OGG)
 - `docs/level_design_guidelines.md` — Rules for ASCII maze files
-- Tests (48 total, all passing): unit tests in maze (10), movement (4), collectibles (2), enemies (3), combat (4), AI (6), plus integration tests (19)
+- `src/events.rs` — `MoneyCollected`, `WeaponPickedUp`, `EnemyKilled` event structs for Bevy Observers
+- `src/plugins/audio.rs` — `GameAudioPlugin`: typed `MusicChannel`/`SfxChannel`, music loops per AppState, SFX via observers + state hooks
+- `src/plugins/hud.rs` — `HudPlugin`: score/lives/level text overlay, spawns on InGame, despawns on exit
+- `src/plugins/narration.rs` — `NarrationPlugin`: Candide-themed quote pools per trigger, observer-driven + state-driven, money throttled every 5th, 3s display + 1s alpha fade, garden level (13) suppression
+- Tests (57 total, all passing): unit tests in maze (10), movement (4), collectibles (2), enemies (3), combat (4), AI (6), audio (1), hud (3), narration (5), plus integration tests (19)
 
 **What doesn't exist yet:**
-- Audio playback systems (music/SFX triggered by game events)
-- HUD (score, lives, level display)
-- Narration (Pangloss quotes)
 - Level progression (multiple mazes, level transitions, menus, game over screen)
 - Micromegas telemetry instrumentation in game systems
 
@@ -210,35 +211,48 @@ Add the weapon pickup → frightened mode → enemy kill loop.
 
 ---
 
-### Phase 6: Audio, HUD, and Narration
+### Phase 6: Audio, HUD, and Narration ✓ COMPLETE
 
 Layer on the feedback systems. These are read-only consumers of game state — they don't affect gameplay logic.
 
 **Steps:**
-1. Create `src/plugins/audio.rs` — `GameAudioPlugin`:
-   - Music channel: loop `menu_theme` on MainMenu, crossfade to `gameplay` on InGame
-   - SFX systems: use Bevy 0.18 Observers (`commands.trigger()` + `app.add_observer()`) or poll state changes to detect game events and play corresponding sounds via `bevy_kira_audio`. Map: money collection → `dot_pickup`, weapon pickup → `power_pellet`, enemy killed → `ghost_eaten`. Also listen for `PlayingState` transitions (`PlayerDeath` → `death`, `LevelComplete` → `level_complete`). Note: Bevy 0.18 removed `EventWriter`/`EventReader` — see Implementation Notes.
-   - Uses `bevy_kira_audio` channels
-2. Create `src/plugins/hud.rs` — `HudPlugin`:
-   - Bevy UI overlay: score (top-left), lives (top-right), level number (top-center)
-   - Updates reactively from `Score`, `Lives`, `CurrentLevel` resources
-3. Create `src/plugins/narration.rs` — `NarrationPlugin`:
-   - Quote pool per trigger type (money, weapon, death, kill, luxury, level start)
-   - Text overlay that fades after a few seconds
-   - No repeats of the same quote consecutively
-   - Suppressed entirely on the Garden level
+1. Create `src/events.rs` — Define `MoneyCollected`, `WeaponPickedUp`, `EnemyKilled` as `#[derive(Event)]` marker structs. Add `commands.trigger()` calls in `collectibles.rs::money_collection`, `combat.rs::weapon_pickup`, and `combat.rs::player_kills_enemy`.
+2. Create `src/plugins/audio.rs` — `GameAudioPlugin`:
+   - Two typed channels: `MusicChannel`, `SfxChannel` (via `bevy_kira_audio::AudioApp::add_audio_channel`)
+   - Music: `OnEnter(AppState::MainMenu)` → loop menu_theme, `OnExit` → stop, `OnEnter(AppState::InGame)` → loop gameplay, `OnExit` → stop
+   - SFX via Observers: `MoneyCollected` → dot_pickup, `WeaponPickedUp` → power_pellet, `EnemyKilled` → ghost_eaten
+   - SFX via state hooks: `OnEnter(PlayerDeath)` → death, `OnEnter(LevelComplete)` → level_complete
+   - Observer signature uses Bevy 0.18 `On<E>` (not `Trigger<E>`)
+3. Create `src/plugins/hud.rs` — `HudPlugin`:
+   - Full-screen `Node` row (`JustifyContent::SpaceBetween`) with 3 `Text` children
+   - Marker components: `HudRoot`, `ScoreText`, `LivesText`, `LevelText`
+   - Spawns on `OnEnter(AppState::InGame)`, despawns on `OnExit(AppState::InGame)`
+   - Update systems read `Score`, `Lives`, `CurrentLevel` resources
+   - NO `MazeEntity` marker — persists across levels
+4. Create `src/plugins/narration.rs` — `NarrationPlugin`:
+   - Quote pools (const `&[&str]` arrays) per trigger: money, weapon, death, kill, level_start
+   - Observer-driven + state-driven triggers (same pattern as audio)
+   - Money narration throttled: only every 5th collection (uses `Local<u32>` counter)
+   - Fade: 3s display + 1s alpha fade → despawn. New narration replaces old (despawn previous)
+   - Garden level (CurrentLevel == 13): all narrations suppressed
+   - `NarrationState` resource tracks `last_quote` to avoid consecutive duplicates
+5. Fix `src/plugins/camera.rs` — Remove `maze.is_changed()` guard so camera re-fits on window resize
 
 **Tests:**
-- HUD elements update when resources change
-- Narration triggers display text and despawn after timeout
-- No consecutive duplicate quotes
-- Garden level suppresses narration
+- Audio plugin initializes, channel resources exist
+- HUD spawns on InGame, text updates when Score/Lives/CurrentLevel change, despawns on exit
+- Narration `pick_quote` returns from pool, no consecutive duplicates, garden level suppresses, text entity spawns, old narration replaced by new
 
 **Files:**
+- `src/events.rs` (new)
 - `src/plugins/audio.rs` (new)
 - `src/plugins/hud.rs` (new)
 - `src/plugins/narration.rs` (new)
+- `src/plugins/collectibles.rs` (update — trigger MoneyCollected)
+- `src/plugins/combat.rs` (update — trigger WeaponPickedUp, EnemyKilled)
+- `src/plugins/camera.rs` (update — remove is_changed guard)
 - `src/plugins/mod.rs` (update)
+- `src/lib.rs` (update — register events module and 3 new plugins)
 
 ---
 
@@ -301,18 +315,21 @@ Wire up the full game loop from menu to game over, with level escalation.
 - `assets/maps/level_01.txt` ✓
 - `docs/level_design_guidelines.md` ✓
 
+**Created (Phase 6):**
+- `src/events.rs` ✓
+- `src/plugins/audio.rs` ✓
+- `src/plugins/hud.rs` ✓
+- `src/plugins/narration.rs` ✓
+
 **Still to create:**
-- `src/plugins/audio.rs` (Phase 6)
-- `src/plugins/hud.rs` (Phase 6)
-- `src/plugins/narration.rs` (Phase 6)
 - `src/plugins/telemetry.rs` (Phase 7)
 - `assets/maps/level_02.txt` through `level_04.txt`, `garden.txt` (Phase 7)
 
-## Implementation Notes (Phases 1–5)
+## Implementation Notes (Phases 1–6)
 
 Deviations from the original plan, discovered during implementation:
 
-1. **Bevy 0.18 removed `EventWriter`/`EventReader`/`add_event`** — The old event system is gone. Bevy 0.18 uses Observers (`commands.trigger()` / `app.add_observer()`). Phase 4 skipped `MoneyCollected` events; Phase 5 skipped `WeaponPickup`/`EnemyKilled` events. Phase 6 must use Observers or state-polling instead of the planned event pattern.
+1. **Bevy 0.18 removed `EventWriter`/`EventReader`/`add_event`** — The old event system is gone. Bevy 0.18 uses Observers (`commands.trigger()` / `app.add_observer()`). Phase 6 added the events and trigger calls that Phases 4–5 deferred. Observer system parameter is `On<E>`, not `Trigger<E>`.
 2. **`OrthographicProjection` is not a Component** — Bevy 0.18 wraps it in `Projection` enum (which IS a Component). Camera fitting queries `&mut Projection` and matches `Projection::Orthographic(ref mut ortho)`.
 3. **`TILE_SIZE` is 32.0**, not 64.0 as originally suggested.
 4. **`check_level_complete` guards on `score > 0`** — Prevents false level-complete triggers when the system runs before the maze spawns any money entities.
@@ -320,6 +337,8 @@ Deviations from the original plan, discovered during implementation:
 6. **AI functions return `Option<Direction>`**, not `GridPosition` as the plan spec'd. The pathfinding returns the direction of the first step, which is what the movement system needs.
 7. **`ActiveWeapon(WeaponType)`**, not `ActiveWeapon(Option<WeaponType>)`. Presence/absence of the component replaces the Option.
 8. **rand 0.8 API** — Uses `rand::thread_rng()` and `.gen_range()`, not the 0.9+ `rand::rng()` API.
+9. **Bevy 0.18 removed `despawn_recursive()`** — `despawn()` now recursively despawns children by default via the relationship system.
+10. **WSL2 audio requires PulseAudio** — `bevy_kira_audio` silently drops all audio when no device is available (`AudioManager` initializes as `None`). Install `pulseaudio` package and ensure WSLg socket at `/mnt/wslg/PulseServer` is accessible. See `docs/wsl2-setup.md`.
 
 ## Trade-offs
 
