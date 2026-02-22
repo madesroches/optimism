@@ -155,10 +155,10 @@ This PoC has zero gameplay. No input handling, no movement, no states. Just a st
 optimism/
 ├── src/
 │   ├── main.rs          # Modified: windowed Bevy app for visual test
-│   └── lib.rs           # Modified: replace PoC R1 systems with sprite gen + render
+│   └── lib.rs           # Modified: add sprite gen + render alongside existing systems
 ```
 
-The PoC replaces the current R1/R2 telemetry demo code in `main.rs` and `lib.rs`. The telemetry initialization stays (it's needed for the full game), but the PoC systems are swapped out. Previous PoC behavior is preserved by the tests in `tests/`.
+The PoC adds sprite generation and rendering to `lib.rs` while keeping the existing `system_a` and `system_b` systems. Those systems are needed by the telemetry integration tests in `tests/telemetry_integration.rs`, which assert specific log/metric counts produced by them. Removing them would break 1 of the 4 existing tests. They'll be removed later when the game has real systems emitting telemetry.
 
 ### What NOT to build
 
