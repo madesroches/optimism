@@ -7,8 +7,8 @@ use bevy_asset_loader::loading_state::LoadingStateAppExt;
 use bevy_asset_loader::prelude::LoadingState;
 
 // Import to prove bevy_kira_audio compiles alongside everything else.
-// AudioPlugin can't run headless — kira's ALSA backend panics without
-// an audio device (expected in WSL2/CI).
+// AudioPlugin works headless — kira wraps AudioManager in Option and
+// silently skips playback when no audio device is available (see poc_r5_audio tests).
 #[allow(unused_imports)]
 use bevy_kira_audio::AudioPlugin;
 

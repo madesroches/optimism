@@ -1,0 +1,3 @@
+midiutil
+numpy
+scipy
