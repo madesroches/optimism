@@ -6,6 +6,7 @@ use micromegas::tracing::dispatch::{
 };
 use micromegas::tracing::levels::{self, LevelFilter};
 use micromegas::tracing::prelude::*;
+use micromegas::tracing::prelude::info;
 use micromegas::tracing::test_utils::init_in_memory_tracing;
 use optimism::OptimismPlugin;
 use serial_test::serial;

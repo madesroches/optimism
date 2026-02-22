@@ -1,5 +1,6 @@
 # PoC R2: Dependency Compatibility
 
+**Status**: DONE
 **Risk**: R2 (Critical) — Architecture doc Section 13
 **Goal**: Verify that all dependencies from the architecture doc (Section 1) compile together against Bevy 0.18 on Rust 1.93, and identify version corrections needed before writing game code.
 
@@ -121,3 +122,48 @@ If any crate fails to compile:
 - **bevy_kira_audio**: Fall back to Bevy's built-in `bevy_audio`. Loses two-channel architecture but the game still works.
 - **bevy_asset_loader**: Fall back to manual `AssetServer` loading. More boilerplate but functional.
 - **avian2d**: Drop it entirely. The architecture already treats Avian as a safety net — grid logic is the source of truth for collision.
+
+---
+
+## 6. Results
+
+**Date**: 2026-02-21
+**Rust**: 1.93.0 (stable)
+**Outcome**: All dependencies compile and coexist. No fallbacks needed.
+
+### cargo check
+
+All 6 game crates resolve and compile together against Bevy 0.18:
+
+```
+cargo check  → Finished `dev` profile (no errors, no warnings)
+```
+
+### cargo test
+
+```
+test dep_compat_all_plugins_coexist ... ok       (PoC R2 — new)
+test logs_and_metrics_work_from_any_thread ... ok (PoC R1)
+test micromegas_macros_dont_panic_in_bevy_systems ... ok (PoC R1)
+test spans_silently_dropped_without_thread_init ... ok   (PoC R1)
+
+test result: ok. 4 passed; 0 failed
+```
+
+### Findings during implementation
+
+1. **`info!` macro ambiguity**: With the expanded Bevy feature set, `bevy::prelude::*` now re-exports `info!` (via `bevy_log`), conflicting with `micromegas::tracing::prelude::info!`. Fixed by adding explicit `use micromegas::tracing::prelude::info;` in all files that use both glob imports.
+
+2. **bevy_kira_audio headless limitation**: `AudioPlugin` panics at runtime without an ALSA audio device (expected in WSL2/CI — no sound card). The crate compiles and links fine; only the runtime init fails. The smoke test verifies compilation via import and excludes `AudioPlugin` from the headless app. This is a non-issue for the actual game (which will have a display server and audio device).
+
+3. **avian2d headless test setup**: `PhysicsPlugins::default()` requires plugins not in `MinimalPlugins`:
+   - `TransformPlugin` — avian2d's transform sync needs it
+   - `AssetPlugin` — asset loading infrastructure
+   - `ScenePlugin` — avian2d's `bevy_scene` feature (on by default) expects `SceneSpawner`
+   - `app.finish()` + `app.cleanup()` must be called before `app.update()` — avian2d registers diagnostics resources (`CollisionDiagnostics`, `SolverDiagnostics`, `SpatialQueryDiagnostics`) in `Plugin::finish()`, not `Plugin::build()`
+
+   None of this is relevant for the actual game (which uses `DefaultPlugins`), only for headless test setups.
+
+### Architecture doc corrections confirmed
+
+All 5 corrections listed in Section 4 above are validated and should be applied.

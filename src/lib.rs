@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use micromegas::tracing::prelude::*;
+use micromegas::tracing::prelude::info;
 
 pub struct OptimismPlugin;
 

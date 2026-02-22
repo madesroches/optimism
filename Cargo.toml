@@ -4,8 +4,35 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.18", default-features = false, features = ["multi_threaded"] }
+bevy = { version = "0.18", default-features = false, features = [
+    # Core app framework
+    "default_app",
+    "bevy_winit",
+    "multi_threaded",
+    # Platform (x11 only — wayland needs libwayland-dev)
+    "std",
+    "x11",
+    # 2D rendering
+    "bevy_render",
+    "bevy_core_pipeline",
+    "bevy_sprite",
+    "bevy_sprite_render",
+    "bevy_gizmos_render",
+    "bevy_post_process",
+    # UI
+    "ui_api",
+    "ui_bevy_render",
+    # Other
+    "scene",
+    "picking",
+    "default_font",
+] }
 micromegas = "0.20"
+bevy_kira_audio = "0.25"
+bevy_asset_loader = "0.25"
+avian2d = "0.5"
+pathfinding = "4"
+rand = "0.8"
 
 [dev-dependencies]
 serial_test = "3.2"

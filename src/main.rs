@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::tasks::{ComputeTaskPool, TaskPoolBuilder};
 use micromegas::telemetry_sink::TelemetryGuardBuilder;
 use micromegas::tracing::dispatch::init_thread_stream;
-use micromegas::tracing::prelude::*;
+use micromegas::tracing::prelude::info;
 
 fn main() {
     // 1. Initialize telemetry (creates LocalEventSink for stdout)
