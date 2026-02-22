@@ -62,7 +62,7 @@ Not abstract concepts. *People.* Suffering isn't cosmic, it's inflicted by other
 | **The Soldier** | Red | Direct pursuit, fastest | Runs you through with a bayonet. Quick, violent. |
 | **The Inquisitor** | Purple | Methodical, cuts off exits | Auto-da-fé. You burn. Dramatic, flames. |
 | **The Thief** | Yellow | Erratic, steals money on contact before killing | Robs you first (money counter drops), then a knife. Double punishment. |
-| **The Slaver** | Green | Slower but persistent | No death — drags you back to the center of the maze. You lose a turn. A fate worse than death in arcade terms. |
+| **The Brute** | Green | Slower but persistent | Crushes you. Heavy, brutal. |
 
 ### Enemy Deaths
 

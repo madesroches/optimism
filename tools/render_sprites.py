@@ -78,7 +78,11 @@ def setup_scene(args):
     scene = bpy.context.scene
 
     # Render settings
-    scene.render.engine = "BLENDER_EEVEE_NEXT" if bpy.app.version >= (4, 0, 0) else "BLENDER_EEVEE"
+    # EEVEE_NEXT was introduced in Blender 4.2; prior versions use BLENDER_EEVEE
+    if bpy.app.version >= (4, 2, 0):
+        scene.render.engine = "BLENDER_EEVEE_NEXT"
+    else:
+        scene.render.engine = "BLENDER_EEVEE"
     scene.render.resolution_x = args.size
     scene.render.resolution_y = args.size
     scene.render.resolution_percentage = 100
@@ -104,19 +108,26 @@ def setup_scene(args):
 
 
 def setup_camera(args):
-    """Create orthographic camera at top-down angle."""
+    """Create orthographic camera at top-down angle aimed at character center."""
     cam_data = bpy.data.cameras.new("SpriteCamera")
     cam_data.type = "ORTHO"
-    cam_data.ortho_scale = 2.0  # Adjust to frame the character
+    cam_data.ortho_scale = 2.5  # Frame a ~1.8m tall character with margin
 
     cam_obj = bpy.data.objects.new("SpriteCamera", cam_data)
     bpy.context.scene.collection.objects.link(cam_obj)
     bpy.context.scene.camera = cam_obj
 
-    # Position: elevated, looking down at angle
+    # camera_angle = degrees from vertical (0 = straight down, 90 = horizontal)
+    # With Euler(angle, 0, 0), camera forward = (0, sin(angle), -cos(angle))
+    # Position camera along the backward direction from the target point.
     angle_rad = math.radians(args.camera_angle)
     dist = args.camera_distance
-    cam_obj.location = (0, -dist * math.cos(angle_rad), dist * math.sin(angle_rad))
+    target_z = 0.9  # Approximate center height of a humanoid character
+    cam_obj.location = (
+        0,
+        -dist * math.sin(angle_rad),
+        target_z + dist * math.cos(angle_rad),
+    )
     cam_obj.rotation_euler = Euler((angle_rad, 0, 0), "XYZ")
 
     return cam_obj
@@ -159,13 +170,22 @@ def find_armature():
 
 
 def find_action(search_terms):
-    """Find an animation action matching any of the search terms (case-insensitive)."""
+    """Find the best animation action matching any search term (case-insensitive).
+
+    Prefers shorter action names to avoid matching overly specific variants
+    (e.g., Walk_Loop over Walk_Formal_Loop, Idle_Loop over Crouch_Idle_Loop).
+    """
+    candidates = []
     for action in bpy.data.actions:
         name_lower = action.name.lower()
         for term in search_terms:
             if term.lower() in name_lower:
-                return action
-    return None
+                candidates.append(action)
+                break
+    if not candidates:
+        return None
+    # Prefer the shortest name (most generic match)
+    return min(candidates, key=lambda a: len(a.name))
 
 
 def get_action_frame_range(action):

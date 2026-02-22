@@ -15,89 +15,74 @@ Validate that Quaternius CC0 base models + modular outfits + material swaps can 
 
 ---
 
-## Phase 1: Download and Inspect Assets
+## Phase 1: Download and Inspect Assets ✓
 
-### 1.1 Download Quaternius Packs
+### 1.1 Download Quaternius Packs ✓
 
-All CC0 licensed, all free (Standard tier):
+**DONE.** All CC0 licensed, all free (Standard tier). Zips downloaded and unpacked into `art/quaternius/`:
 
-| Pack | URL | What we need |
-|------|-----|-------------|
-| Universal Base Characters | https://quaternius.itch.io/universal-base-characters | "Regular Male" model (~13k tris, humanoid rig) |
-| Universal Animation Library | https://quaternius.itch.io/universal-animation-library | Walk, idle, death animations (45 free, 120+ total) |
-| Universal Animation Library 2 | https://quaternius.itch.io/universal-animation-library-2 | Melee combat combos, armed combat (130+ animations) |
-| Modular Character Outfits - Fantasy | https://quaternius.itch.io/modular-character-outfits-fantasy | Robes, hoods, armor parts (62 modular pieces, 12 outfits) |
-| LowPoly Medieval Weapons | https://quaternius.itch.io/lowpoly-medieval-weapons | 22 weapon models |
-| Fantasy Props MegaKit | https://quaternius.itch.io/fantasy-props-megakit | Props for luxury items (200+ models, 94 free) |
+| Pack | Subdirectory | What we got |
+|------|-------------|-------------|
+| Universal Base Characters | `base-characters/` | Superhero_Male_FullBody (~14k tris, 65-bone UE4 rig) |
+| Universal Animation Library | `animation-library/` | 45 actions in UAL1_Standard.glb (walk, idle, death, sword, spell, etc.) |
+| Universal Animation Library 2 | `animation-library-2/` | 43 actions in UAL2_Standard.glb (sword combos, zombie walk, etc.) |
+| Modular Character Outfits - Fantasy | `outfits-fantasy/` | Standard tier: Peasant + Ranger outfits (male/female), 10 male modular parts |
+| LowPoly Medieval Weapons | `medieval-weapons/` | 24 weapon FBX models |
+| Fantasy Props MegaKit | `fantasy-props/` | 94 free prop glTF models (mugs, chains, coins, etc.) |
 
-Place downloads in `art/quaternius/` (gitignored — binary assets stay out of the repo).
+**Note:** Standard tier only includes Superhero body type (not Regular Male) and 2 outfit sets (Peasant, Ranger). The plan originally assumed Regular Male and 12 outfits — adjusted character assembly to work with what's available.
 
-### 1.2 Inspect in Blender
+### 1.2 Inspect in Blender ✓
 
-Open the Regular Male GLB/FBX in Blender and verify:
-- Bone names and hierarchy (expected: Godot SkeletonProfileHumanoid convention, ~56 bones)
-- That animation library FBX files retarget cleanly onto the base rig (same bone names since v2.0)
-- Whether walk animations are in-place or root-motion (we need in-place for sprite rendering)
-- That modular outfit pieces share the same armature and snap onto the base model
-- Triangle count and overall silhouette at top-down orthographic view
+**DONE.** Automated inspection via `tools/inspect_assets.py`:
+- **Rig**: 65 bones, UE4 naming convention (root→pelvis→spine_01, hand_l/hand_r, Head, etc.)
+- **Animation compatibility**: 65/65 bones match exactly between base character, animation libraries, and outfits (100%)
+- **Root motion**: Walk/run animations are in-place (no root motion to strip)
+- **Outfit compatibility**: Both Peasant and Ranger outfits share the identical 65-bone armature
+- **Key bones for prop attachment**: Head, neck_01, spine_01/02/03, hand_l, hand_r
 
-**Decision gate**: If the rig or animations are incompatible, stop and assess before continuing.
+**Decision gate**: PASSED — all assets fully compatible.
 
 ---
 
-## Phase 2: Character Assembly in Blender
+## Phase 2: Character Assembly in Blender ✓
 
-### 2.1 Set Up Base Character Template
+### 2.1 Automated Assembly Script ✓
 
-Create a Blender file (`art/characters/template.blend`) with:
-- Regular Male base mesh with armature
-- Animation actions linked from the animation library (walk, idle, attack, death)
-- Orthographic camera at top-down ~30-45 degree tilt
-- Transparent background render settings
-- 64x64 output resolution
+**DONE.** Instead of manual Blender work, wrote `tools/assemble_characters.py` — a headless Blender script that programmatically builds all character .blend files:
 
-### 2.2 Assemble Each Character
+```
+blender -b -P tools/assemble_characters.py
+```
 
-Duplicate the template for each character. Differentiate by outfit pieces + material colors:
+For each character, the script:
+1. Imports base model or complete outfit file (same 65-bone armature)
+2. Imports animation library 1 (45 actions), marks all as fake_user
+3. Optionally imports extra modular parts and re-parents to main armature
+4. Applies character-specific material colors (disconnects texture nodes, sets flat color)
+5. Saves as `art/characters/{name}.blend`
 
-| Character | Outfit Approach | Primary Color | Distinguishing Feature |
-|-----------|----------------|---------------|----------------------|
-| **Candide** | Base model, minimal clothing | Neutral/white | Simple, unadorned — the "blank" character |
-| **Soldier** | Armor/military outfit pieces from modular pack | Red | Heavy shoulders, weapon-ready pose |
-| **Inquisitor** | Robe/cloak outfit pieces | Purple | Long flowing robes, tall silhouette |
-| **Thief** | Hood + light armor pieces | Yellow/gold | Hood is the key identifier |
-| **Slaver** | Heavy clothing, belt/chains accessories | Green | Bulkier silhouette via outfit layering |
+Single-character validation: `blender -b -P tools/assemble_one.py -- soldier`
 
-For each character:
-1. Start from template.blend
-2. Attach appropriate modular outfit pieces (pre-weighted to same skeleton)
-3. Assign materials with character-specific colors
-4. Verify animations still play correctly with outfit pieces attached
-5. Save as `art/characters/{name}.blend`
+### 2.2 Character Definitions (Revised for Standard Tier) ✓
 
-### 2.3 Candide Luxury Variants
+**DONE.** Adapted character assignments to available Peasant/Ranger outfits:
 
-For each luxury item, create a variant of Candide's .blend file:
-1. Model or source a simple prop (from Fantasy Props MegaKit or quick manual modeling)
-2. Parent the prop to the appropriate bone (hand bone for goblet/Rolex, head for grill, spine for chain/coat)
-3. Save as `art/characters/candide_{item}.blend`
+| Character | Model Source | Primary Color | Distinguishing Feature |
+|-----------|-------------|---------------|----------------------|
+| **candide_base** | Base Superhero_Male (no outfit) | Cream (0.9, 0.88, 0.82) | Bare skin — the "blank" character |
+| **soldier** | Full Ranger outfit + Sword.fbx | Deep red (0.75, 0.12, 0.1) | Hooded + armored + sword in hand_r |
+| **inquisitor** | Peasant outfit + Ranger hood | Purple (0.45, 0.12, 0.65) | Robed body with hood — mixed outfit |
+| **thief** | Ranger outfit minus pauldron | Gold (0.85, 0.72, 0.08) | Lighter ranger silhouette |
+| **brute** | Full Peasant outfit | Dark green (0.18, 0.55, 0.12) | Bulky peasant clothes |
 
-| Variant | Prop | Parent Bone |
-|---------|------|-------------|
-| candide_grill | Simple gold mouth piece | Head |
-| candide_chain | Oversized necklace | Neck/UpperChest |
-| candide_rolex | Wristwatch/bracelet | LeftHand |
-| candide_goblet | Goblet held overhead | RightHand |
-| candide_furcoat | Puffy coat mesh | Chest/Spine |
-| candide_toilet | Gold toilet carried | RightHand |
+### 2.3 Candide Luxury Variants — DEFERRED
+
+Props are too small to read at 64x64 (tested grill, chain, goblet — only goblet barely visible). Disabled in `assemble_characters.py`. Revisit when we have a better approach (glow effects, larger/exaggerated props, or higher render resolution).
 
 ### 2.4 Weapon and Item Sprites
 
-Weapons and luxury items also need sprite sheets for pickup display:
-- Source from LowPoly Medieval Weapons + Fantasy Props MegaKit
-- For weapons not in the pack (brass knuckles, chainsaw): quick manual models or find on OpenGameArt/itch.io (CC0)
-- Render as static sprites (no animation needed), single 64x64 frame each
-- Composite onto single sheets: `weapons.png` (5 items), `items.png` (6 items)
+Not yet started. Deferred until character sprites are validated.
 
 ---
 
@@ -112,7 +97,7 @@ blender -b art/characters/soldier.blend -P tools/render_sprites.py -- --output a
 ```
 
 The script:
-1. Finds the armature and its animation actions (fuzzy name matching)
+1. Finds the armature and its animation actions (fuzzy name matching, prefers shortest match)
 2. For each animation (walk, idle, attack, death):
    - Sets the active action
    - For directional animations (walk, attack): rotates model 0°/90°/180°/270° and renders each frame
@@ -123,6 +108,11 @@ The script:
 
 CLI options: `--size`, `--columns`, `--camera-angle`, `--camera-distance`, `--outline` (Freestyle)
 
+**Bugs fixed during validation:**
+- Camera position had sin/cos swapped — camera was pointed away from character (empty renders)
+- EEVEE engine name: Blender 4.0.x uses `BLENDER_EEVEE`, not `BLENDER_EEVEE_NEXT` (that's 4.2+)
+- Action matching: changed from "first match" to "shortest name match" to avoid picking Walk_Formal over Walk_Loop
+
 ### 3.2 Write `tools/render_all.py` ✓
 
 **DONE.** Python script that renders all characters:
@@ -131,14 +121,22 @@ CLI options: `--size`, `--columns`, `--camera-angle`, `--camera-distance`, `--ou
 python3 tools/render_all.py
 ```
 
-### 3.3 Render and Validate
+### 3.3 Render and Validate ✓
 
-Run the batch script. Inspect each sprite sheet:
-- Characters distinguishable from each other at 64x64?
-- Walk cycle reads as walking (not sliding/glitching)?
-- Attack animation has clear motion?
-- Death animation reads clearly?
-- Outfit pieces don't clip or deform badly during animation?
+**DONE.** Two render passes:
+
+**Pass 1 (failed):** Colors not visible — GLTF texture nodes overrode flat color. Fixed by disconnecting texture links before setting Base Color.
+
+**Pass 2 (passed):** All 5 characters rendered, clearly distinguishable:
+
+| Criteria | Status | Notes |
+|----------|--------|-------|
+| Walk cycle reads as walking? | ✓ | 4-directional walk cycles look good |
+| Attack animation has clear motion? | ✓ | Sword swing visible in all 4 directions |
+| Death animation reads clearly? | ✓ | Character falls convincingly |
+| Outfit pieces clip during animation? | ✓ | No visible clipping at 64x64 |
+| Characters distinguishable by color? | ✓ | Red/purple/gold/green clearly different after texture disconnect fix |
+| Characters distinguishable by silhouette? | ✓ | Soldier (sword), Candide (bare skin), Inquisitor (hood+robe), Thief (hood, lighter), Brute (bulky peasant) |
 
 ---
 
@@ -194,36 +192,36 @@ Once the pipeline works for one character:
 
 ```
 art/                              # gitignored — binary sources
-├── quaternius/                   # downloaded asset packs
-├── characters/
-│   ├── template.blend           # base character template
+├── quaternius/                   # downloaded + unpacked asset packs
+│   ├── base-characters/
+│   ├── animation-library/
+│   ├── animation-library-2/
+│   ├── outfits-fantasy/
+│   ├── medieval-weapons/
+│   └── fantasy-props/
+├── characters/                  # generated by assemble_characters.py
 │   ├── candide_base.blend
-│   ├── candide_grill.blend
-│   ├── candide_chain.blend
-│   ├── candide_rolex.blend
-│   ├── candide_goblet.blend
-│   ├── candide_furcoat.blend
-│   ├── candide_toilet.blend
 │   ├── soldier.blend
 │   ├── inquisitor.blend
 │   ├── thief.blend
-│   └── slaver.blend
+│   └── brute.blend
 
 tools/                            # committed
-├── render_sprites.py            # Blender headless rendering script
-└── render_all.py                # batch render all characters
+├── assemble_characters.py       # Blender headless: build all .blend files from assets
+├── assemble_one.py              # Blender headless: build single character for testing
+├── inspect_assets.py            # Blender headless: inspect rig/bones/animations
+├── render_sprites.py            # Blender headless: render .blend → sprite sheet
+└── render_all.py                # Python: batch render all characters
 
 assets/sprites/                   # committed — final output
-├── candide_base.png             # sprite sheet (columns x rows, configurable)
-├── candide_base.json            # per-character JSON metadata sidecar
-├── candide_grill.png
-├── candide_grill.json
-├── ...                          # (one .png + .json pair per character/variant)
-├── soldier.png
-├── soldier.json
-├── weapons.png                  # 5 weapons, static sprites
-├── items.png                    # 6 luxury items, static sprites
-└── tiles.png                    # wall/floor/dot tiles
+├── candide_base.png + .json     # sprite sheets (8x6 grid, 46 frames each)
+├── soldier.png + .json
+├── inquisitor.png + .json
+├── thief.png + .json
+├── brute.png + .json
+├── weapons.png                  # not yet — 5 weapons, static sprites
+├── items.png                    # not yet — 6 luxury items, static sprites
+└── tiles.png                    # not yet — wall/floor/dot tiles
 
 src/plugins/
 ├── mod.rs                       # committed — module declaration

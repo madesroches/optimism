@@ -1,0 +1,50 @@
+{
+  "frame_size": [
+    64,
+    64
+  ],
+  "columns": 8,
+  "animations": {
+    "walk_down": {
+      "start": 0,
+      "count": 6
+    },
+    "walk_left": {
+      "start": 6,
+      "count": 6
+    },
+    "walk_up": {
+      "start": 12,
+      "count": 6
+    },
+    "walk_right": {
+      "start": 18,
+      "count": 6
+    },
+    "idle": {
+      "start": 24,
+      "count": 2
+    },
+    "attack_down": {
+      "start": 26,
+      "count": 4
+    },
+    "attack_left": {
+      "start": 30,
+      "count": 4
+    },
+    "attack_up": {
+      "start": 34,
+      "count": 4
+    },
+    "attack_right": {
+      "start": 38,
+      "count": 4
+    },
+    "death": {
+      "start": 42,
+      "count": 4
+    }
+  },
+  "rows": 6
+}

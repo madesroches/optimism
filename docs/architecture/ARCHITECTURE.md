@@ -51,7 +51,7 @@ Avian is ECS-native (no dual-world sync), its source is readable (good for a tut
 
 ### Why pathfinding crate
 
-Soldier and Slaver enemies use A* pathfinding. The `pathfinding` crate provides a battle-tested `astar()` function that works directly on grid coordinates. Rolling a custom A* is ~100-150 lines and a distraction from the tutorial focus.
+Soldier and Brute enemies use A* pathfinding. The `pathfinding` crate provides a battle-tested `astar()` function that works directly on grid coordinates. Rolling a custom A* is ~100-150 lines and a distraction from the tutorial focus.
 
 ### Why bevy_asset_loader
 
@@ -97,7 +97,7 @@ optimism/
 │   │   ├── soldier.rs                   # Direct pursuit AI
 │   │   ├── inquisitor.rs               # Exit-cutting AI
 │   │   ├── thief.rs                     # Erratic + money-stealing AI
-│   │   └── slaver.rs                    # Slow persistent AI
+│   │   └── brute.rs                    # Slow persistent AI
 │   └── procgen/
 │       ├── mod.rs
 │       ├── candide.rs                   # Candide sprite generation + item overlays
@@ -133,7 +133,7 @@ This gives us:
 
 **Candide** — Pre-composed sprite variants generated at startup, all the same tile-sized dimensions. The base sprite plus one variant per luxury item state (7 total: bare, grill, chain, Rolex, goblet, fur coat, gold toilet). Each variant bakes the luxury item overlay into the sprite at generation time. When Candide collects an item, the game swaps his sprite handle to the corresponding pre-composed variant. This avoids runtime pixel-buffer compositing and keeps collision/layout uniform.
 
-**Enemies** — Color-tinted variants of a base ghost/figure shape. Red (Soldier), Purple (Inquisitor), Yellow (Thief), Green (Slaver). A "frightened" variant uses a shared blue/white palette.
+**Enemies** — Color-tinted variants of a base ghost/figure shape. Red (Soldier), Purple (Inquisitor), Yellow (Thief), Green (Brute). A "frightened" variant uses a shared blue/white palette.
 
 **Tiles** — Wall tiles with solid, border, and corner variants. Floor tiles. Money dot sprites. Generated with simple patterns.
 
@@ -250,7 +250,7 @@ struct GameStats {
 ```rust
 enum Direction { Up, Down, Left, Right }
 
-enum EnemyKind { Soldier, Inquisitor, Thief, Slaver }
+enum EnemyKind { Soldier, Inquisitor, Thief, Brute }
 
 enum WeaponType { BrassKnuckles, Bat, Knife, Axe, Chainsaw }
 
@@ -291,7 +291,7 @@ Each enemy type has a dedicated module in `src/ai/` that implements its pathfind
 
 **Thief** (`ai/thief.rs`) — Random movement with increasing bias toward the player as distance decreases. On contact: steals money (reduces `Score`) before killing. Collecting a luxury item increases the Thief's `MoveSpeed` for the rest of the level.
 
-**Slaver** (`ai/slaver.rs`) — A* toward player but slowest `MoveSpeed`. On contact: doesn't kill — teleports the player to the maze center and costs a turn. A fate worse than death in arcade terms.
+**Brute** (`ai/brute.rs`) — A* toward player but slowest `MoveSpeed`. On contact: kills the player like any other enemy.
 
 ### Frightened mode
 
@@ -496,8 +496,8 @@ Bevy systems are testable by constructing a minimal `World`/`App`, inserting com
 | **Grid movement** | Cannot move into walls; moves update `GridPosition`; `MoveLerp` created correctly | Insert player + walls into `World` → run movement system → assert position |
 | **Player input** | Direction mapping; queued input buffering | Simulate `ButtonInput<KeyCode>` → run input system → assert `MoveDirection` |
 | **Collectibles** | Money increments score; all money collected triggers `LevelComplete`; weapon pickup sets `ActiveWeapon` + `WeaponTimer` | Insert player + collectibles at same `GridPosition` → run collection system → assert `Score`, state changes |
-| **Enemy AI** | Soldier A* finds shortest path; Inquisitor targets ahead of player; Thief biases toward player at close range; Slaver pathfinds correctly | Construct small test mazes → run AI function → assert target `GridPosition` / `MoveDirection` |
-| **Combat** | Weapon active + enemy contact = enemy killed + `Respawning`; no weapon + enemy contact = player death; Slaver teleports instead of killing | Set up combat scenarios → run combat system → assert outcomes |
+| **Enemy AI** | Soldier A* finds shortest path; Inquisitor targets ahead of player; Thief biases toward player at close range; Brute pathfinds correctly | Construct small test mazes → run AI function → assert target `GridPosition` / `MoveDirection` |
+| **Combat** | Weapon active + enemy contact = enemy killed + `Respawning`; no weapon + enemy contact = player death | Set up combat scenarios → run combat system → assert outcomes |
 | **Frightened mode** | Weapon pickup adds `Frightened` to all enemies; timer expiry removes it; frightened enemies flee from player | Insert entities with/without `Frightened` → run AI → assert flee direction |
 | **Narration** | Correct trigger → quote displayed; no repeat of last quote; Garden level suppresses quotes | Fire `NarrationTrigger` event → run narration system → assert UI entity spawned with expected text |
 | **Level progression** | Level config maps correctly; speed multiplier increases; weapon duration decreases; Garden level has no enemies | Assert `LevelConfig` values for each level range |

@@ -13,7 +13,7 @@ PoC R3 (procedural 16x16 pixel art) failed — code-generated sprites aren't rec
 - **Soldier** — military figure, red uniform
 - **Inquisitor** — robed religious figure, purple vestments
 - **Thief** — hooded figure, yellow/gold clothing
-- **Slaver** — heavy-set figure, green clothing
+- **Brute** — heavy-set figure, green clothing
 - **Weapons** — 5 models (brass knuckles, bat, knife, axe, chainsaw)
 - **Luxury items** — 6 models (gold grill, chain, Rolex, goblet, fur coat, gold toilet)
 - **Candide variants** — base + 6 luxury item overlays = 7 total
@@ -167,7 +167,7 @@ assets/
 │   ├── soldier.png
 │   ├── inquisitor.png
 │   ├── thief.png
-│   ├── slaver.png
+│   ├── brute.png
 │   ├── weapons.png            # all 5 weapons on one sheet
 │   ├── items.png              # all 6 luxury items on one sheet
 │   └── tiles.png              # wall/floor/dot tiles
