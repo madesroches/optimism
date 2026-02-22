@@ -2,7 +2,7 @@
 
 **Risk**: R3 (High) — Architecture doc Section 13
 **Goal**: Prove that code-generated 16x16 pixel art produces visually recognizable game sprites before committing to a zero-art-budget approach.
-**Status**: TODO
+**Status**: FAILED — AI-agent-generated procedural sprites lack the quality needed for recognizable game art at 16x16. The rendering pipeline works, but the sprites themselves are not good enough.
 
 ---
 
