@@ -1,6 +1,6 @@
 # Design: 3D-to-Sprite-Sheet Pipeline
 
-**Status**: Proposed
+**Status**: Resolved — Approach B (Quaternius reskin) selected and validated (see `poc-r4b-reskin-base-model.md`)
 **Date**: 2026-02-22
 
 ## Context
