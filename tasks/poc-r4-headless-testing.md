@@ -2,7 +2,7 @@
 
 **Risk**: R4 (High) — Architecture doc Section 13
 **Goal**: Prove that Bevy ECS systems can be unit-tested headlessly — state transitions, event propagation, component queries, and system ordering all behave correctly under `MinimalPlugins` without a window.
-**Status**: TODO
+**Status**: PASSED
 
 ---
 
@@ -194,3 +194,40 @@ If FAIL: document what broke and whether workarounds exist. Consider whether Avi
 | `SubStates` require parent state plugin setup | Low | Follow Bevy docs for `add_sub_state` |
 | `run_system_once` API changed in 0.18 | Low | Check docs, fall back to direct world queries |
 | State transitions need >2 updates | Medium | Document exact count, adjust test helpers |
+
+---
+
+## 8. Results
+
+**Date**: 2026-02-22
+**Verdict**: PASSED — all 8 tests pass under `cargo test`
+
+### Bevy 0.18 API Changes
+
+Bevy 0.18 replaced the old `EventReader`/`EventWriter` system with two new patterns:
+
+| Pattern | Types | Use Case |
+|---------|-------|----------|
+| **Messages** (pull-based) | `MessageWriter<M>`, `MessageReader<M>`, `app.add_message::<M>()` | Replaces old Events. Systems write/read messages each frame. |
+| **Observers** (push-based) | `app.add_observer(\|e: On<E>\| { })`, `commands.trigger(E)` | Immediate reactions. No per-frame polling. |
+
+Tests 4, 5, and 8 use **Messages** since they're the direct replacement for the old event pattern the game will use.
+
+### Measured Values
+
+| Metric | Value |
+|--------|-------|
+| `app.update()` calls for state transition | **1** |
+| `run_if(in_state(...))` activates on same frame as transition | **Yes** (counter = 4 after 4 updates including transition frame) |
+| Message lifetime (frames) | **1 frame only** (visible in the update where it was written, gone by next update) |
+| Game-like scenario frames to complete | **5** (1 transition + 4 movement to reach position >= 5) |
+| `OnEnter`/`OnExit` fire during transition | **Yes** |
+| `SubStates` activate/deactivate with parent | **Yes** |
+| `SubStates` removed when parent leaves source variant | **Yes** |
+
+### Gotchas
+
+1. **`app.finish()` + `app.cleanup()` required** before first `app.update()` — same as dep_compat.rs. Without this, some plugins don't register their resources.
+2. **Message lifetime is 1 frame, not 2** — unlike old Bevy Events which survived 2 update cycles. A `MessageReader` sees messages written in the current frame only. By the next `app.update()`, the double-buffer has swapped and the reader's cursor has advanced past them.
+3. **`EventReader`/`EventWriter`/`add_event()` no longer exist** — all removed in Bevy 0.18. Use `MessageWriter`/`MessageReader`/`add_message()` or Observers.
+4. **`StatesPlugin` is not in `MinimalPlugins`** — must be added explicitly (confirmed).
