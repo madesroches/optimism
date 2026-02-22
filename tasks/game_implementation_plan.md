@@ -69,7 +69,7 @@ Parse ASCII map files into ECS entities. Render walls and floors using colored r
 1. Create `assets/maps/level_01.txt` — First maze using the ASCII format from the architecture doc
 2. Create `src/plugins/maze.rs` — `MazePlugin`:
    - `MazeMap` resource: 2D grid storing tile types, walkability lookup, spawn positions
-   - `load_maze` system (runs `OnEnter(PlayingState::LevelIntro)`): parse text file, spawn `Wall` entities with `GridPosition` + `SpriteBundle` (colored rectangles), spawn `Money` dot entities, record `PlayerSpawn`/`EnemySpawn`/`WeaponSpawn`/`LuxurySpawn` positions
+   - `load_maze` system (runs `OnEnter(PlayingState::LevelIntro)`): parse text file, spawn `Wall` entities with `GridPosition` + `Sprite::from_color()` (colored rectangles — Bevy 0.18 uses required components, not bundles), spawn `Money` dot entities, record `PlayerSpawn`/`EnemySpawn`/`WeaponSpawn`/`LuxurySpawn` positions
    - `TILE_SIZE` constant (e.g., 64.0) for grid-to-world coordinate conversion
    - `grid_to_world(GridPosition) -> Vec2` helper
 3. Wire into camera: auto-center and scale camera to fit the maze dimensions
@@ -103,10 +103,10 @@ Get Candide moving through the maze with arrow keys. This is the core movement s
    - `movement_interpolation` system: advance `MoveLerp::t`, update `Transform`. When `t >= 1.0`, snap to target and remove `MoveLerp`.
    - Pac-Man-style cornering: buffer one input ahead so direction changes feel responsive
 2. Create `src/plugins/player.rs` — `PlayerPlugin`:
-   - `spawn_player` system (runs `OnEnter(PlayingState::Playing)`): spawn Candide at `PlayerSpawn` position with sprite sheet, `Player` marker, `GridPosition`, `MoveSpeed`, `FacingDirection`
+   - `spawn_player` system (runs `OnEnter(PlayingState::LevelIntro)`): spawn Candide at `PlayerSpawn` position with sprite sheet, `Player` marker, `GridPosition`, `MoveSpeed`, `FacingDirection`. Spawns once per level alongside the maze — the death/respawn flow resets positions without re-spawning (see Phase 4).
    - `player_input` system: read `ButtonInput<KeyCode>`, set `InputDirection` on player entity
    - `player_input_to_direction` system: convert buffered `InputDirection` into `MoveDirection` when the player arrives at a tile (no active lerp)
-3. Wire sprite animation: when `MoveDirection` changes, update the entity's `FacingDirection` (from `sprites.rs`) to match, which drives the walk animation direction in the existing `animate_sprites` system. Add `impl From<Direction> for FacingDirection` to bridge the movement `Direction` enum (in `components.rs`) to the animation `FacingDirection` enum (in `sprites.rs`).
+3. Wire sprite animation: add `impl From<Direction> for FacingDirection` to bridge the movement `Direction` enum (in `components.rs`) to the animation `FacingDirection` enum (in `sprites.rs`). Add a `sync_facing_to_animation` system that detects when an entity's `FacingDirection` changes and updates `AnimationState.current` accordingly using `resolve_animation_key`/`set_animation` from `sprites.rs`. The existing `animate_sprites` system only advances frames within the current animation range — it does not read `FacingDirection`, so this bridge system is required to switch between directional animation keys (e.g., `walk_down` → `walk_left`).
 
 **Tests:**
 - Player can move to an empty tile (GridPosition updates)
@@ -140,10 +140,10 @@ Add the core Pac-Man loop: collect all money to win, enemies chase and kill you.
    - Brute: A* toward player (slowest)
    - All use `pathfinding::prelude::astar` on `MazeMap`'s walkability grid
 3. Create `src/plugins/enemies.rs` — `EnemyPlugin`:
-   - `spawn_enemies` system: spawn 4 enemies at `EnemySpawn` positions with sprite sheets, AI type, `MoveSpeed`
+   - `spawn_enemies` system (runs `OnEnter(PlayingState::LevelIntro)`): spawn 4 enemies at `EnemySpawn` positions with sprite sheets, AI type, `MoveSpeed`. Spawns once per level alongside the maze — not on `OnEnter(Playing)`, to avoid duplicates on death/respawn.
    - `enemy_ai` system (runs during `PlayingState::Playing`): for each enemy, call its AI module to get target, set `MoveDirection` toward next step on path
    - `enemy_player_collision` system: when enemy's `GridPosition` matches player's → trigger `PlayerDeath` state, play `death` SFX, decrement `Lives`
-   - `handle_player_death` system: if `Lives > 0`, reset positions, transition back to `Playing`. If `Lives == 0`, transition to `AppState::GameOver`.
+   - `handle_player_death` system: if `Lives > 0`, reset player and enemy `GridPosition` to their spawn positions (do NOT re-enter `Playing` via state transition — use `OnEnter(PlayerDeath)` to reset, then transition to `Playing`). If `Lives == 0`, transition to `AppState::GameOver`. Note: because entities are spawned on `OnEnter(LevelIntro)`, re-entering `Playing` after death does not trigger re-spawning.
    - Enemy pen: enemies start in the central pen, released one at a time on a timer
 
 **Tests:**
@@ -235,7 +235,7 @@ Wire up the full game loop from menu to game over, with level escalation.
 **Steps:**
 1. Create additional maze files (`level_02.txt` through `level_04.txt`, plus `garden.txt`)
 2. Update `src/plugins/maze.rs` — `LevelConfig` mapping: level number → maze file, weapon type, luxury type, enemy speed multiplier, weapon duration
-3. Create `src/plugins/collectibles.rs` additions — `LuxuryItem` spawning at `LuxurySpawn`, temporary with timeout, visual change on Candide's sprite (swap sprite sheet handle to variant), Thief speed boost on collection
+3. Create `src/plugins/collectibles.rs` additions — `LuxuryItem` spawning at `LuxurySpawn`, temporary with timeout, Thief speed boost on collection. No visual change on Candide's sprite (deferred — see Open Questions).
 4. Level transitions: `LevelComplete` → `LevelTransition` (cleanup entities) → `LevelIntro` (show "Level X" + Pangloss quote) → `Playing` (load next maze)
 5. Main menu: simple "Press Enter to Start" screen
 6. Game over: stats display (score, deaths, kills by weapon type, luxuries collected) — *"The best of possible games... considering..."*
