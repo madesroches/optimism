@@ -8,31 +8,41 @@ The implementation is split into 7 phases. Each phase produces a testable, runna
 
 ## Current State
 
-**What exists:**
-- `main.rs` — Micromegas telemetry init + Bevy app bootstrap (MinimalPlugins, no window)
-- `lib.rs` — `OptimismPlugin` with placeholder `system_a`/`system_b` demo systems
-- `plugins/sprites.rs` — Full sprite sheet loading, texture atlas, animation state machine
-- `assets/sprites/` — 5 character sprite sheets (candide_base, soldier, inquisitor, thief, brute) with JSON metadata
+**Phases 1–5 COMPLETE.** Phase 6 is next.
+
+**What exists (Phases 1–5):**
+- `src/main.rs` — Micromegas telemetry init + `ComputeTaskPool` pre-init + `DefaultPlugins` (with x11 window) + `OptimismPlugin`
+- `src/lib.rs` — `OptimismPlugin`: registers all states, plugins (Camera, Maze, Movement, Player, Collectible, Enemy, Combat, SpriteSheet), resources, asset loading, temporary `skip_to_in_game`
+- `src/app_state.rs` — `AppState` (Loading, MainMenu, InGame, GameOver) + `PlayingState` SubStates
+- `src/components.rs` — `GridPosition`, `Direction`, `MoveDirection`, `MoveSpeed`, `InputDirection`, `MoveLerp`, `Player`, `Enemy`, `EnemyKind`, `InPen`, `Wall`, `Money`, `SpawnPosition`
+- `src/resources.rs` — `Score(u64)`, `CurrentLevel(u32)`, `Lives(u32)`, `LevelConfig`, `AudioAssets`
+- `src/plugins/camera.rs` — Camera2d with auto-fit to maze dimensions
+- `src/plugins/maze.rs` — `MazeMap` resource, ASCII parser, tile rendering, `grid_to_world`, `auto_start_level` shim, `MazeEntity` marker, `PenGate` component
+- `src/plugins/movement.rs` — `MovementPlugin`: grid-based movement validation, smooth lerp interpolation, transform sync
+- `src/plugins/player.rs` — `PlayerPlugin`: spawn at `PlayerSpawn`, WASD/arrow input, direction buffering, `FacingDirection` ↔ animation bridge
+- `src/plugins/collectibles.rs` — `CollectiblePlugin`: money collection (score += 10), level complete when all collected
+- `src/plugins/enemies.rs` — `EnemyPlugin`: spawn 4 enemies with sprite sheets, AI dispatch (soldier/inquisitor/thief/brute), player collision → death, pen release timer, death/respawn position reset
+- `src/plugins/combat.rs` — `CombatPlugin`: weapon pickups, `ActiveWeapon`/`WeaponTimer`, `Frightened` mode on all enemies, armed player kills frightened enemies, `Respawning` timer → return to pen
+- `src/plugins/sprites.rs` — Full sprite sheet loading, texture atlas, animation state machine
+- `src/ai/` — 4 AI modules: soldier (A* direct), inquisitor (A* 4-ahead), thief (random + close-range bias), brute (A* direct, slower speed)
+- `assets/maps/level_01.txt` — First maze (28x22, fully enclosed, connected, enemy pen with gate)
+- `assets/sprites/` — 5 character sprite sheets with JSON metadata
 - `assets/audio/` — 2 music tracks + 5 SFX (OGG)
-- Tests: telemetry (3), headless ECS patterns (8), audio (2), dep compat (1)
-- Tools: `render_sprites.py`, `render_all.py`, `generate_audio.py`
+- `docs/level_design_guidelines.md` — Rules for ASCII maze files
+- Tests (48 total, all passing): unit tests in maze (10), movement (4), collectibles (2), enemies (3), combat (4), AI (6), plus integration tests (19)
 
 **What doesn't exist yet:**
-- Game states (`AppState`, `PlayingState`)
-- Components (`GridPosition`, `Player`, `Enemy`, etc.)
-- Maze loading and rendering
-- Player movement and input
-- Enemy AI
-- Collectibles, weapons, combat
-- Audio playback systems
-- HUD, narration, menus
-- Level progression
+- Audio playback systems (music/SFX triggered by game events)
+- HUD (score, lives, level display)
+- Narration (Pangloss quotes)
+- Level progression (multiple mazes, level transitions, menus, game over screen)
+- Micromegas telemetry instrumentation in game systems
 
 ## Implementation Phases
 
 ---
 
-### Phase 1: App Skeleton — States, Camera, Window
+### Phase 1: App Skeleton — States, Camera, Window ✓ COMPLETE
 
 Replace the placeholder `OptimismPlugin` with the real game structure. Get a window open with a camera and state machine driving transitions.
 
@@ -61,7 +71,7 @@ Replace the placeholder `OptimismPlugin` with the real game structure. Get a win
 
 ---
 
-### Phase 2: Maze System — Loading, Rendering, Collision Grid
+### Phase 2: Maze System — Loading, Rendering, Collision Grid ✓ COMPLETE
 
 Parse ASCII map files into ECS entities. Render walls and floors using colored rectangles (placeholder visuals — sprite tiles can come later). Build a walkability grid for pathfinding.
 
@@ -90,7 +100,7 @@ Parse ASCII map files into ECS entities. Render walls and floors using colored r
 
 ---
 
-### Phase 3: Player Movement — Input, Grid Logic, Sprite Animation
+### Phase 3: Player Movement — Input, Grid Logic, Sprite Animation ✓ COMPLETE
 
 Get Candide moving through the maze with arrow keys. This is the core movement system that enemies will also use.
 
@@ -125,7 +135,7 @@ Get Candide moving through the maze with arrow keys. This is the core movement s
 
 ---
 
-### Phase 4: Collectibles and Enemies — Money, AI, Death
+### Phase 4: Collectibles and Enemies — Money, AI, Death ✓ COMPLETE
 
 Add the core Pac-Man loop: collect all money to win, enemies chase and kill you.
 
@@ -171,7 +181,7 @@ Add the core Pac-Man loop: collect all money to win, enemies chase and kill you.
 
 ---
 
-### Phase 5: Weapons and Combat — Power Pellets, Frightened Mode
+### Phase 5: Weapons and Combat — Power Pellets, Frightened Mode ✓ COMPLETE
 
 Add the weapon pickup → frightened mode → enemy kill loop.
 
@@ -207,7 +217,7 @@ Layer on the feedback systems. These are read-only consumers of game state — t
 **Steps:**
 1. Create `src/plugins/audio.rs` — `GameAudioPlugin`:
    - Music channel: loop `menu_theme` on MainMenu, crossfade to `gameplay` on InGame
-   - SFX systems: read messages written by game systems (`MoneyCollected` → `dot_pickup`, `WeaponPickup` → `power_pellet`, `EnemyKilled` → `ghost_eaten`) and play the corresponding sound via `bevy_kira_audio`. Also listen for `PlayingState` transitions (`PlayerDeath` → `death`, `LevelComplete` → `level_complete`).
+   - SFX systems: use Bevy 0.18 Observers (`commands.trigger()` + `app.add_observer()`) or poll state changes to detect game events and play corresponding sounds via `bevy_kira_audio`. Map: money collection → `dot_pickup`, weapon pickup → `power_pellet`, enemy killed → `ghost_eaten`. Also listen for `PlayingState` transitions (`PlayerDeath` → `death`, `LevelComplete` → `level_complete`). Note: Bevy 0.18 removed `EventWriter`/`EventReader` — see Implementation Notes.
    - Uses `bevy_kira_audio` channels
 2. Create `src/plugins/hud.rs` — `HudPlugin`:
    - Bevy UI overlay: score (top-left), lives (top-right), level number (top-center)
@@ -266,32 +276,48 @@ Wire up the full game loop from menu to game over, with level escalation.
 
 ## Files to Modify (Summary)
 
-**New files:**
-- `src/app_state.rs`
-- `src/components.rs`
-- `src/resources.rs`
-- `src/plugins/camera.rs`
-- `src/plugins/maze.rs`
-- `src/plugins/movement.rs`
-- `src/plugins/player.rs`
-- `src/plugins/collectibles.rs`
-- `src/plugins/enemies.rs`
-- `src/plugins/combat.rs`
-- `src/plugins/audio.rs`
-- `src/plugins/hud.rs`
-- `src/plugins/narration.rs`
-- `src/plugins/telemetry.rs`
-- `src/ai/mod.rs`
-- `src/ai/soldier.rs`
-- `src/ai/inquisitor.rs`
-- `src/ai/thief.rs`
-- `src/ai/brute.rs`
-- `assets/maps/level_01.txt` (+ additional levels)
+**Created (Phases 1–5):**
+- `src/app_state.rs` ✓
+- `src/components.rs` ✓
+- `src/resources.rs` ✓ (will be updated in Phase 7)
+- `src/main.rs` ✓
+- `src/lib.rs` ✓
+- `src/plugins/mod.rs` ✓
+- `src/plugins/camera.rs` ✓
+- `src/plugins/maze.rs` ✓
+- `src/plugins/movement.rs` ✓
+- `src/plugins/player.rs` ✓
+- `src/plugins/collectibles.rs` ✓ (Phase 7 adds luxury items)
+- `src/plugins/enemies.rs` ✓
+- `src/plugins/combat.rs` ✓
+- `src/plugins/sprites.rs` ✓
+- `src/ai/mod.rs` ✓
+- `src/ai/soldier.rs` ✓
+- `src/ai/inquisitor.rs` ✓
+- `src/ai/thief.rs` ✓
+- `src/ai/brute.rs` ✓
+- `assets/maps/level_01.txt` ✓
+- `docs/level_design_guidelines.md` ✓
 
-**Modified files:**
-- `src/main.rs`
-- `src/lib.rs`
-- `src/plugins/mod.rs`
+**Still to create:**
+- `src/plugins/audio.rs` (Phase 6)
+- `src/plugins/hud.rs` (Phase 6)
+- `src/plugins/narration.rs` (Phase 6)
+- `src/plugins/telemetry.rs` (Phase 7)
+- `assets/maps/level_02.txt` through `level_04.txt`, `garden.txt` (Phase 7)
+
+## Implementation Notes (Phases 1–5)
+
+Deviations from the original plan, discovered during implementation:
+
+1. **Bevy 0.18 removed `EventWriter`/`EventReader`/`add_event`** — The old event system is gone. Bevy 0.18 uses Observers (`commands.trigger()` / `app.add_observer()`). Phase 4 skipped `MoneyCollected` events; Phase 5 skipped `WeaponPickup`/`EnemyKilled` events. Phase 6 must use Observers or state-polling instead of the planned event pattern.
+2. **`OrthographicProjection` is not a Component** — Bevy 0.18 wraps it in `Projection` enum (which IS a Component). Camera fitting queries `&mut Projection` and matches `Projection::Orthographic(ref mut ortho)`.
+3. **`TILE_SIZE` is 32.0**, not 64.0 as originally suggested.
+4. **`check_level_complete` guards on `score > 0`** — Prevents false level-complete triggers when the system runs before the maze spawns any money entities.
+5. **`From<Direction> for FacingDirection`** lives in `player.rs`, not `sprites.rs`.
+6. **AI functions return `Option<Direction>`**, not `GridPosition` as the plan spec'd. The pathfinding returns the direction of the first step, which is what the movement system needs.
+7. **`ActiveWeapon(WeaponType)`**, not `ActiveWeapon(Option<WeaponType>)`. Presence/absence of the component replaces the Option.
+8. **rand 0.8 API** — Uses `rand::thread_rng()` and `.gen_range()`, not the 0.9+ `rand::rng()` API.
 
 ## Trade-offs
 
