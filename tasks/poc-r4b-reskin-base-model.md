@@ -1,6 +1,6 @@
 # PoC R4b: Reskin Free Base Model
 
-**Status**: Proposed
+**Status**: In Progress
 **Date**: 2026-02-22
 **Parent**: `tasks/3d-to-sprite-sheet-pipeline.md` (Approach B)
 
@@ -101,56 +101,34 @@ Weapons and luxury items also need sprite sheets for pickup display:
 
 ---
 
-## Phase 3: Blender Headless Rendering Script
+## Phase 3: Blender Headless Rendering Script ✓
 
-### 3.1 Write `tools/render_sprites.py`
+### 3.1 Write `tools/render_sprites.py` ✓
 
-Python script that Blender runs headless to produce sprite sheets:
+**DONE.** Python script that Blender runs headless to produce sprite sheets:
 
 ```
 blender -b art/characters/soldier.blend -P tools/render_sprites.py -- --output assets/sprites/soldier.png
 ```
 
-The script must:
-1. Find the armature and its animation actions
+The script:
+1. Finds the armature and its animation actions (fuzzy name matching)
 2. For each animation (walk, idle, attack, death):
-   - Set the active action
-   - For directional animations (walk, attack): rotate model 0°/90°/180°/270° and render each frame
-   - For non-directional (idle, death): render frames at default rotation
-3. Render each frame at 64x64 with transparent background
-4. Composite all frames into a single sprite sheet (8 columns, 6 rows = 512x384)
-5. Write JSON metadata alongside the PNG:
+   - Sets the active action
+   - For directional animations (walk, attack): rotates model 0°/90°/180°/270° and renders each frame
+   - For non-directional (idle, death): renders frames at default rotation
+3. Renders each frame at 64x64 with transparent background (EEVEE)
+4. Composites all frames into a single sprite sheet (configurable columns)
+5. Writes per-character JSON metadata alongside the PNG
 
-```json
-{
-  "frame_size": [64, 64],
-  "columns": 8,
-  "rows": 6,
-  "animations": {
-    "walk_down":  { "start": 0,  "count": 6 },
-    "walk_left":  { "start": 6,  "count": 6 },
-    "walk_up":    { "start": 12, "count": 6 },
-    "walk_right": { "start": 18, "count": 6 },
-    "idle":       { "start": 24, "count": 2 },
-    "attack_down":  { "start": 26, "count": 4 },
-    "attack_left":  { "start": 30, "count": 4 },
-    "attack_up":    { "start": 34, "count": 4 },
-    "attack_right": { "start": 38, "count": 4 },
-    "death":      { "start": 42, "count": 4 }
-  }
-}
+CLI options: `--size`, `--columns`, `--camera-angle`, `--camera-distance`, `--outline` (Freestyle)
+
+### 3.2 Write `tools/render_all.py` ✓
+
+**DONE.** Python script that renders all characters:
+
 ```
-
-### 3.2 Write `tools/render_all.sh`
-
-Batch script that renders all characters:
-
-```bash
-#!/bin/bash
-for blend in art/characters/*.blend; do
-    name=$(basename "$blend" .blend)
-    blender -b "$blend" -P tools/render_sprites.py -- --output "assets/sprites/${name}.png"
-done
+python3 tools/render_all.py
 ```
 
 ### 3.3 Render and Validate
@@ -164,32 +142,35 @@ Run the batch script. Inspect each sprite sheet:
 
 ---
 
-## Phase 4: Bevy Integration
+## Phase 4: Bevy Integration ✓
 
-### 4.1 Load Sprite Sheets
+### 4.1 Load Sprite Sheets ✓
 
-Create `src/plugins/sprites.rs`:
-- Load all PNG sprite sheets from `assets/sprites/`
-- Parse `sprites.json` for frame metadata
-- Create `TextureAtlasLayout::from_grid(UVec2::new(64, 64), 8, 6, None, None)` per sheet
-- Store handles as resources accessible by character type
+**DONE.** `src/plugins/sprites.rs` provides:
+- `SpriteSheetLibrary` resource — loads PNG + per-character JSON sidecar, builds `TextureAtlasLayout::from_grid`
+- `CharacterSheet` — bundles image handle, layout handle, and parsed metadata
+- `SpriteSheetPlugin` — registers the library resource and animation system
 
-### 4.2 Animation System
+### 4.2 Animation System ✓
 
-Add sprite animation components:
+**DONE.** Components:
 - `AnimationTimer` — ticks through frames based on elapsed time
-- `AnimationState` — current animation (walk/idle/attack/death)
-- `FacingDirection` — selects the correct directional row
-- System reads JSON metadata to map state+direction to frame range
+- `AnimationState` — current animation key, looping flag, finished flag
+- `FacingDirection` — Down/Left/Up/Right, selects directional animation variant
+- `CharacterSheetRef` — links entity to its sheet in the library
+- `animate_sprites` system reads JSON metadata to map state+direction to frame range
 
-### 4.3 Test Window
+Helpers: `resolve_animation_key()` (directional fallback), `set_animation()` (switch with reset)
 
-Minimal Bevy app that:
-1. Loads one character sprite sheet
-2. Displays the character
-3. Arrow keys move the character (switching walk direction animations)
-4. Space triggers attack animation
-5. Verifies sprite quality and animation smoothness in-engine
+### 4.3 Test Window ✓
+
+**DONE.** `examples/sprite_test.rs` — run with:
+```
+cargo run --example sprite_test -- [character_name]
+```
+- Arrow keys move the character (switches walk direction animations)
+- Space triggers attack, D triggers death, I triggers idle
+- HUD shows controls
 
 ---
 
@@ -230,26 +211,26 @@ art/                              # gitignored — binary sources
 
 tools/                            # committed
 ├── render_sprites.py            # Blender headless rendering script
-└── render_all.sh                # batch render all characters
+└── render_all.py                # batch render all characters
 
 assets/sprites/                   # committed — final output
-├── candide_base.png             # 512x384 sprite sheet
+├── candide_base.png             # sprite sheet (columns x rows, configurable)
+├── candide_base.json            # per-character JSON metadata sidecar
 ├── candide_grill.png
-├── candide_chain.png
-├── candide_rolex.png
-├── candide_goblet.png
-├── candide_furcoat.png
-├── candide_toilet.png
+├── candide_grill.json
+├── ...                          # (one .png + .json pair per character/variant)
 ├── soldier.png
-├── inquisitor.png
-├── thief.png
-├── slaver.png
+├── soldier.json
 ├── weapons.png                  # 5 weapons, static sprites
 ├── items.png                    # 6 luxury items, static sprites
-├── tiles.png                    # wall/floor/dot tiles
-└── sprites.json                 # frame metadata for all sheets
+└── tiles.png                    # wall/floor/dot tiles
 
-src/plugins/sprites.rs           # committed — Bevy integration
+src/plugins/
+├── mod.rs                       # committed — module declaration
+└── sprites.rs                   # committed — Bevy sprite loading + animation
+
+examples/
+└── sprite_test.rs               # committed — interactive sprite validation
 ```
 
 ---

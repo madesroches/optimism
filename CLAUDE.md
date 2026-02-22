@@ -15,3 +15,7 @@ Early concept phase. The game design document is in `concept/OPTIMISM.md`. No co
 - **Language**: Rust
 - **Telemetry**: Micromegas integration as the tutorial focus
 - **Genre**: Pac-Man-style arcade game with narrative elements
+
+## Conventions
+
+- Prefer Python over shell scripts for tooling and automation

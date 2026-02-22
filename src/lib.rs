@@ -1,3 +1,5 @@
+pub mod plugins;
+
 use bevy::prelude::*;
 use micromegas::tracing::prelude::*;
 use micromegas::tracing::prelude::info;
