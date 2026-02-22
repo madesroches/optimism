@@ -23,9 +23,6 @@ fn fit_camera_to_maze(
     mut cameras: Query<&mut Projection, With<Camera2d>>,
 ) {
     let Some(maze) = maze else { return };
-    if !maze.is_changed() {
-        return;
-    }
     let Ok(window) = windows.single() else {
         return;
     };

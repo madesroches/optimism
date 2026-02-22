@@ -1,6 +1,7 @@
 pub mod ai;
 pub mod app_state;
 pub mod components;
+pub mod events;
 pub mod plugins;
 pub mod resources;
 
@@ -9,12 +10,15 @@ use bevy_asset_loader::prelude::*;
 use bevy_kira_audio::AudioPlugin;
 
 use app_state::{AppState, PlayingState};
+use plugins::audio::GameAudioPlugin;
 use plugins::camera::CameraPlugin;
 use plugins::collectibles::CollectiblePlugin;
 use plugins::combat::CombatPlugin;
 use plugins::enemies::EnemyPlugin;
+use plugins::hud::HudPlugin;
 use plugins::maze::MazePlugin;
 use plugins::movement::MovementPlugin;
+use plugins::narration::NarrationPlugin;
 use plugins::player::PlayerPlugin;
 use plugins::sprites::SpriteSheetPlugin;
 use resources::{AudioAssets, CurrentLevel, Lives, Score};
@@ -39,6 +43,9 @@ impl Plugin for OptimismPlugin {
         app.add_plugins(CollectiblePlugin);
         app.add_plugins(EnemyPlugin);
         app.add_plugins(CombatPlugin);
+        app.add_plugins(GameAudioPlugin);
+        app.add_plugins(HudPlugin);
+        app.add_plugins(NarrationPlugin);
 
         // Resources
         app.insert_resource(Score(0));

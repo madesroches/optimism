@@ -4,6 +4,7 @@ use bevy::prelude::*;
 
 use crate::app_state::PlayingState;
 use crate::components::{GridPosition, Money, Player};
+use crate::events::MoneyCollected;
 use crate::resources::Score;
 
 pub struct CollectiblePlugin;
@@ -35,6 +36,7 @@ fn money_collection(
         if player_pos == money_pos {
             commands.entity(entity).despawn();
             score.0 += 10;
+            commands.trigger(MoneyCollected);
         }
     }
 }

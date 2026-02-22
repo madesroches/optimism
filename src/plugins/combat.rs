@@ -4,6 +4,7 @@ use bevy::prelude::*;
 
 use crate::app_state::PlayingState;
 use crate::components::*;
+use crate::events::{EnemyKilled, WeaponPickedUp};
 use crate::plugins::maze::{grid_to_world, load_maze, MazeMap, MazeEntity, TILE_SIZE};
 
 pub struct CombatPlugin;
@@ -110,6 +111,7 @@ fn weapon_pickup(
                 commands.entity(enemy_entity).insert(Frightened);
             }
 
+            commands.trigger(WeaponPickedUp);
             break; // Only pick up one weapon per frame
         }
     }
@@ -161,6 +163,7 @@ fn player_kills_enemy(
                 .insert(Visibility::Hidden)
                 .remove::<Frightened>()
                 .remove::<MoveDirection>();
+            commands.trigger(EnemyKilled);
         }
     }
 }

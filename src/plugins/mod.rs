@@ -1,8 +1,11 @@
+pub mod audio;
 pub mod camera;
 pub mod collectibles;
 pub mod combat;
 pub mod enemies;
+pub mod hud;
 pub mod maze;
 pub mod movement;
+pub mod narration;
 pub mod player;
 pub mod sprites;
