@@ -8,9 +8,24 @@ use micromegas::tracing::levels::{self, LevelFilter};
 use micromegas::tracing::prelude::*;
 use micromegas::tracing::prelude::info;
 use micromegas::tracing::test_utils::init_in_memory_tracing;
-use optimism::OptimismPlugin;
 use serial_test::serial;
 use std::time::Duration;
+
+fn telemetry_system_a(time: Res<Time>) {
+    span_scope!("telemetry_system_a");
+    let dt_ms = time.delta_secs_f64() * 1000.0;
+    fmetric!("system_a_dt", "ms", dt_ms);
+    imetric!("system_a_tick", "count", 1);
+    info!("system_a: dt={:.2}ms", dt_ms);
+}
+
+fn telemetry_system_b(time: Res<Time>) {
+    span_scope!("telemetry_system_b");
+    let dt_ms = time.delta_secs_f64() * 1000.0;
+    fmetric!("system_b_dt", "ms", dt_ms);
+    imetric!("system_b_tick", "count", 1);
+    info!("system_b: dt={:.2}ms", dt_ms);
+}
 
 /// Test 1: Micromegas macros don't panic when called from Bevy systems
 /// running on the parallel executor, and span events are actually collected.
@@ -43,7 +58,7 @@ fn micromegas_macros_dont_panic_in_bevy_systems() {
         .add_plugins(
             MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_millis(16))),
         )
-        .add_plugins(OptimismPlugin)
+        .add_systems(Update, (telemetry_system_a, telemetry_system_b))
         .add_systems(Update, move |mut exit: MessageWriter<AppExit>| {
             frame_count += 1;
             if frame_count >= 5 {

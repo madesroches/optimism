@@ -1,30 +1,49 @@
+pub mod app_state;
+pub mod components;
 pub mod plugins;
+pub mod resources;
 
 use bevy::prelude::*;
-use micromegas::tracing::prelude::*;
-use micromegas::tracing::prelude::info;
+use bevy_asset_loader::prelude::*;
+use bevy_kira_audio::AudioPlugin;
+
+use app_state::{AppState, PlayingState};
+use plugins::camera::CameraPlugin;
+use plugins::sprites::SpriteSheetPlugin;
+use resources::{AudioAssets, CurrentLevel, Lives, Score};
 
 pub struct OptimismPlugin;
 
 impl Plugin for OptimismPlugin {
     fn build(&self, app: &mut App) {
-        // Two independent systems — Bevy may run them in parallel
-        app.add_systems(Update, (system_a, system_b));
+        // State machine (StatesPlugin comes from DefaultPlugins)
+        app.init_state::<AppState>();
+        app.add_sub_state::<PlayingState>();
+
+        // Audio
+        app.add_plugins(AudioPlugin);
+
+        // Game plugins
+        app.add_plugins(SpriteSheetPlugin);
+        app.add_plugins(CameraPlugin);
+
+        // Resources
+        app.insert_resource(Score(0));
+        app.insert_resource(CurrentLevel(1));
+        app.insert_resource(Lives(3));
+
+        // Asset loading
+        app.add_loading_state(
+            LoadingState::new(AppState::Loading)
+                .continue_to_state(AppState::MainMenu)
+                .load_collection::<AudioAssets>(),
+        );
+
+        // Temporary: skip main menu until Phase 7
+        app.add_systems(OnEnter(AppState::MainMenu), skip_to_in_game);
     }
 }
 
-fn system_a(time: Res<Time>) {
-    span_scope!("system_a");
-    let dt_ms = time.delta_secs_f64() * 1000.0;
-    fmetric!("system_a_dt", "ms", dt_ms);
-    imetric!("system_a_tick", "count", 1);
-    info!("system_a: dt={:.2}ms", dt_ms);
-}
-
-fn system_b(time: Res<Time>) {
-    span_scope!("system_b");
-    let dt_ms = time.delta_secs_f64() * 1000.0;
-    fmetric!("system_b_dt", "ms", dt_ms);
-    imetric!("system_b_tick", "count", 1);
-    info!("system_b: dt={:.2}ms", dt_ms);
+fn skip_to_in_game(mut next_state: ResMut<NextState<AppState>>) {
+    next_state.set(AppState::InGame);
 }
