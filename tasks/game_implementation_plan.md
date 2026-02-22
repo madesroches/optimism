@@ -40,9 +40,10 @@ Replace the placeholder `OptimismPlugin` with the real game structure. Get a win
 1. Create `src/app_state.rs` — `AppState` enum (Loading, MainMenu, InGame, GameOver) + `PlayingState` SubStates enum (LevelIntro, Playing, Paused, PlayerDeath, LevelComplete, LevelTransition)
 2. Create `src/components.rs` — Start with `GridPosition { x: i32, y: i32 }`, `Player`, `Enemy`, `Wall`, `Money` marker components. Add more as needed in later phases.
 3. Create `src/resources.rs` — `Score(u64)`, `CurrentLevel(u32)`, `Lives(u32)`, `LevelConfig`
-4. Update `src/lib.rs` — Replace demo systems with real `OptimismPlugin` that adds states, camera, and sub-plugins
+4. Update `src/lib.rs` — Replace demo systems with real `OptimismPlugin` that adds states, camera, `SpriteSheetPlugin`, and sub-plugins for each phase
 5. Create `src/plugins/camera.rs` — Orthographic 2D camera, centered on maze
 6. Update `main.rs` — Switch from `MinimalPlugins` to `DefaultPlugins` (with x11) so we get a window
+7. Set up `bevy_asset_loader` — Define an `AssetCollection` for audio files (music + SFX). Use `LoadingStateConfig` to drive `AppState::Loading` → `AppState::MainMenu` transition automatically when all assets are loaded. Sprite sheets are loaded manually via `SpriteSheetLibrary::load` (they need the JSON sidecar), so they don't go through `bevy_asset_loader`.
 
 **Tests:**
 - State machine transitions (Loading → MainMenu → InGame → GameOver)
@@ -72,6 +73,7 @@ Parse ASCII map files into ECS entities. Render walls and floors using colored r
    - `TILE_SIZE` constant (e.g., 64.0) for grid-to-world coordinate conversion
    - `grid_to_world(GridPosition) -> Vec2` helper
 3. Wire into camera: auto-center and scale camera to fit the maze dimensions
+4. Add a temporary `auto_start_level` system (runs `OnEnter(PlayingState::LevelIntro)`): immediately transitions to `PlayingState::Playing` after maze load completes. This is a development shim so Phases 2–6 are playable with `cargo run`. Phase 7 replaces it with the real level intro screen (show "Level X" + Pangloss quote, then transition on timer/input).
 
 **Tests:**
 - Parse a small test maze string → correct entity counts (walls, dots, spawns)
@@ -104,18 +106,20 @@ Get Candide moving through the maze with arrow keys. This is the core movement s
    - `spawn_player` system (runs `OnEnter(PlayingState::Playing)`): spawn Candide at `PlayerSpawn` position with sprite sheet, `Player` marker, `GridPosition`, `MoveSpeed`, `FacingDirection`
    - `player_input` system: read `ButtonInput<KeyCode>`, set `InputDirection` on player entity
    - `player_input_to_direction` system: convert buffered `InputDirection` into `MoveDirection` when the player arrives at a tile (no active lerp)
-3. Wire sprite animation: `FacingDirection` changes drive walk animation direction in the existing `animate_sprites` system
+3. Wire sprite animation: when `MoveDirection` changes, update the entity's `FacingDirection` (from `sprites.rs`) to match, which drives the walk animation direction in the existing `animate_sprites` system. Add `impl From<Direction> for FacingDirection` to bridge the movement `Direction` enum (in `components.rs`) to the animation `FacingDirection` enum (in `sprites.rs`).
 
 **Tests:**
 - Player can move to an empty tile (GridPosition updates)
 - Player cannot move into a wall (GridPosition unchanged)
 - Input buffering: press direction while moving → applied on arrival at next tile
 - Sprite animation matches facing direction
+- `Direction` → `FacingDirection` conversion is correct for all 4 variants
 
 **Files:**
 - `src/plugins/movement.rs` (new)
 - `src/plugins/player.rs` (new)
 - `src/plugins/mod.rs` (update)
+- `src/plugins/sprites.rs` (update — add `From<Direction> for FacingDirection`)
 - `src/components.rs` (update — Direction enum, movement components)
 
 ---
