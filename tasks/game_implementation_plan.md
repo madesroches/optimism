@@ -254,7 +254,9 @@ Wire up the full game loop from menu to game over, with level escalation.
 5. Main menu: simple "Press Enter to Start" screen
 6. Game over: stats display (score, deaths, kills by weapon type, luxuries collected) — *"The best of possible games... considering..."*
 7. The Garden (level 13): no enemies, no weapons, no narration, small simple maze
-8. Micromegas telemetry: add `span_scope!`, `fmetric!`, `imetric!`, `info!` calls to each plugin per the architecture doc's instrumentation table
+8. Micromegas telemetry: add `span_scope!`, `fmetric!`, `imetric!`, `info!` calls to each plugin per the architecture doc's instrumentation table. Specific additions:
+   - `player.rs`: log user input direction at debug level via `debug!("player_input: {:?}", direction)` whenever `InputDirection` changes
+   - `player.rs`: record player grid position as metrics via `imetric!("player_x", "tile", pos.x)` and `imetric!("player_y", "tile", pos.y)` each frame during `PlayingState::Playing`
 9. Update `docs/architecture/ARCHITECTURE.md`: remove the `procgen/` module from the project structure (Section 2), fix the `sprites.rs` description in Section 2 from `SpriteGenPlugin — procedural sprite generation` to `SpriteSheetPlugin — sprite sheet loading and animation`, replace Section 3 (Procedural Art Pipeline) with a description of the Quaternius 3D-to-sprite-sheet pipeline (`tools/render_sprites.py`, `tools/render_all.py`, JSON metadata sidecar format), update the test strategy table in Section 12 to replace the procgen "Sprite generation" row with sprite sheet loading/animation tests, remove "Procedural sprite generation" from Section 14's implementation order, and update Risk R3 to note the procgen approach was abandoned in favor of pre-rendered sprites
 
 **Tests:**

@@ -82,13 +82,14 @@ fn movement_validation(
 /// Advance movement interpolation and snap when complete.
 fn movement_interpolation(
     time: Res<Time>,
-    mut query: Query<(Entity, &mut Transform, &MoveLerp, &MoveSpeed)>,
+    mut query: Query<(Entity, &mut Transform, &mut MoveLerp, &MoveSpeed)>,
     mut commands: Commands,
 ) {
-    for (entity, mut transform, lerp, speed) in &mut query {
+    for (entity, mut transform, mut lerp, speed) in &mut query {
         // t advances based on speed (tiles per second) and tile size
         let dt = time.delta_secs() * speed.0;
         let new_t = (lerp.t + dt).min(1.0);
+        lerp.t = new_t;
 
         let pos = lerp.from.lerp(lerp.to, new_t);
         transform.translation.x = pos.x;
