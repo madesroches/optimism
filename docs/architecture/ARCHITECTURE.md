@@ -14,10 +14,32 @@ This document describes the technical architecture for Optimism, a Pac-Man-inspi
 
 ```toml
 [dependencies]
-bevy = "0.18"
+bevy = { version = "0.18", default-features = false, features = [
+    # Core app framework
+    "default_app",
+    "bevy_winit",
+    "multi_threaded",
+    # Platform (x11 only — wayland needs libwayland-dev)
+    "std",
+    "x11",
+    # 2D rendering
+    "bevy_render",
+    "bevy_core_pipeline",
+    "bevy_sprite",
+    "bevy_sprite_render",
+    "bevy_gizmos_render",
+    "bevy_post_process",
+    # UI
+    "ui_api",
+    "ui_bevy_render",
+    # Other
+    "scene",
+    "picking",
+    "default_font",
+] }
 avian2d = "0.5"
-bevy_kira_audio = "0.24"
-bevy_asset_loader = "0.25.0-rc.1"  # stable 0.25 not yet published as of Feb 2026
+bevy_kira_audio = "0.25"
+bevy_asset_loader = "0.25"
 micromegas = "0.20"
 pathfinding = "4"
 rand = "0.8"
@@ -519,13 +541,13 @@ Ordered by severity. Risks marked **PoC** need a proof of concept before full im
 
 The entire tutorial premise depends on `micromegas-tracing` macros (`span_scope!`, `fmetric!`, `imetric!`) working correctly inside Bevy systems. Bevy runs systems in parallel across threads. If Micromegas uses thread-local span stacks that conflict with Bevy's scheduling, or if the telemetry guard doesn't survive across Bevy's app lifecycle, the project's core value proposition fails. No amount of game code matters if the telemetry doesn't work.
 
-*Result: All three channels (logs, metrics, spans) work from Bevy worker threads. Spans require `ComputeTaskPool` pre-initialization with `on_thread_spawn` → `init_thread_stream()`. Without it, spans are silently dropped (no panics). The calling thread also needs `init_thread_stream()` since Bevy uses it as a worker. Bevy `default_app` feature must be avoided (pulls in winit which fails on Rust 1.93); use `multi_threaded` only for headless.*
+*Result: All three channels (logs, metrics, spans) work from Bevy worker threads. Spans require `ComputeTaskPool` pre-initialization with `on_thread_spawn` → `init_thread_stream()`. Without it, spans are silently dropped (no panics). The calling thread also needs `init_thread_stream()` since Bevy uses it as a worker. Bevy's `default_app` feature works fine — it pulls in winit, which requires a platform backend feature (`x11` or `wayland`). Without one, winit's `platform_impl` module has no concrete types, causing compilation errors. Use `x11` (runtime dlopen, no build-time headers) rather than `wayland` (requires `libwayland-dev`). See Section 1 for the full Bevy feature set.*
 
-**R2. Dependency compatibility — bevy_kira_audio 0.24 vs Bevy 0.18** — **PoC**
+**R2. Dependency compatibility** — **PoC DONE** (see `tasks/poc-r2-dependency-compatibility.md`)
 
-`bevy_kira_audio = "0.24"` was built for an earlier Bevy version. If it doesn't compile against Bevy 0.18, audio is blocked. Fallback: Bevy's built-in `bevy_audio`, but it lacks the two-channel (music + SFX) architecture described in Section 11. The same concern applies to `bevy_asset_loader = "0.25.0-rc.1"` (release candidate — API could shift).
+All six game crates compile together against Bevy 0.18 on Rust 1.93. Version corrections applied: `bevy_kira_audio` 0.24→0.25, `bevy_asset_loader` RC→stable 0.25. Bevy features composed from mid-level collections (see Section 1) to avoid `libwayland-dev` build dependency. Smoke test confirms avian2d, bevy_asset_loader, and bevy_kira_audio plugins coexist in a headless app. `bevy_kira_audio` requires `libasound2-dev` at build time (ALSA backend via kira→cpal).
 
-*PoC: `cargo check` a minimal Cargo.toml with all dependencies listed in Section 1. If anything fails to resolve or compile, identify alternatives before writing game code.*
+*Note: `info!` macro from `bevy_log` (included via `default_app`) conflicts with `micromegas::tracing::prelude::info!`. Files using both glob imports need explicit `use micromegas::tracing::prelude::info;` to disambiguate.*
 
 ### High — would require significant rework
 
