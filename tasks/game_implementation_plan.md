@@ -43,7 +43,7 @@ Replace the placeholder `OptimismPlugin` with the real game structure. Get a win
 4. Update `src/lib.rs` — Replace demo systems with real `OptimismPlugin` that adds states, camera, `SpriteSheetPlugin`, and sub-plugins for each phase
 5. Create `src/plugins/camera.rs` — Orthographic 2D camera, centered on maze
 6. Update `main.rs` — Switch from `MinimalPlugins` to `DefaultPlugins` (with x11) so we get a window
-7. Set up `bevy_asset_loader` — Define an `AssetCollection` for audio files (music + SFX). Use `LoadingStateConfig` to drive `AppState::Loading` → `AppState::MainMenu` transition automatically when all assets are loaded. Sprite sheets are loaded manually via `SpriteSheetLibrary::load` (they need the JSON sidecar), so they don't go through `bevy_asset_loader`.
+7. Set up `bevy_asset_loader` — Define an `AssetCollection` (derive macro) for audio files (music + SFX). Register via `app.add_loading_state(LoadingState::new(AppState::Loading).continue_to_state(AppState::MainMenu).load_collection::<AudioAssets>())` — this drives the `AppState::Loading` → `AppState::MainMenu` transition automatically when all assets are loaded. Sprite sheets are loaded manually via `SpriteSheetLibrary::load` (they need the JSON sidecar), so they don't go through `bevy_asset_loader`.
 
 **Tests:**
 - State machine transitions (Loading → MainMenu → InGame → GameOver)
@@ -131,7 +131,7 @@ Add the core Pac-Man loop: collect all money to win, enemies chase and kill you.
 
 **Steps:**
 1. Create `src/plugins/collectibles.rs` — `CollectiblePlugin`:
-   - `money_collection` system: when player's `GridPosition` matches a `Money` entity, despawn it, increment `Score`, play `dot_pickup` SFX
+   - `money_collection` system: when player's `GridPosition` matches a `Money` entity, despawn it, increment `Score`, write `MoneyCollected` message
    - `check_level_complete` system: when no `Money` entities remain, transition to `PlayingState::LevelComplete`
 2. Create `src/ai/mod.rs`, `src/ai/soldier.rs`, `src/ai/inquisitor.rs`, `src/ai/thief.rs`, `src/ai/brute.rs`:
    - Each module exposes `fn choose_target(enemy_pos: GridPosition, player_pos: GridPosition, player_dir: Direction, maze: &MazeMap) -> GridPosition`
@@ -143,7 +143,7 @@ Add the core Pac-Man loop: collect all money to win, enemies chase and kill you.
 3. Create `src/plugins/enemies.rs` — `EnemyPlugin`:
    - `spawn_enemies` system (runs `OnEnter(PlayingState::LevelIntro)`, ordered `.after(load_maze)`): spawn 4 enemies at `EnemySpawn` positions with sprite sheets, AI type, `MoveSpeed`. All enemies start inside the pen with an `InPen` marker component. Spawns once per level alongside the maze — not on `OnEnter(Playing)`, to avoid duplicates on death/respawn.
    - `enemy_ai` system (runs during `PlayingState::Playing`): for each enemy, call its AI module to get target, set `MoveDirection` toward next step on path
-   - `enemy_player_collision` system: when enemy's `GridPosition` matches player's → trigger `PlayerDeath` state, play `death` SFX, decrement `Lives`
+   - `enemy_player_collision` system: when enemy's `GridPosition` matches player's → trigger `PlayerDeath` state, decrement `Lives`
    - `handle_player_death` system: if `Lives > 0`, reset player and enemy `GridPosition` to their spawn positions (do NOT re-enter `Playing` via state transition — use `OnEnter(PlayerDeath)` to reset, then transition to `Playing`). If `Lives == 0`, transition to `AppState::GameOver`. Note: because entities are spawned on `OnEnter(LevelIntro)`, re-entering `Playing` after death does not trigger re-spawning.
    - Enemy pen release: a `PenReleaseTimer` resource ticks during `PlayingState::Playing`. Each tick, the next enemy with an `InPen` marker has it removed, allowing it to move through the `PenGate` tiles and into the maze. Release interval is configurable per level (faster at higher levels). `PenGate` tiles are walkable for entities with `Enemy` but not for `Player` — the `movement_validation` system checks this. Once an enemy exits the pen area, normal AI takes over. Enemies killed during frightened mode respawn back into the pen with `InPen` restored (see Phase 5).
 
@@ -179,16 +179,16 @@ Add the weapon pickup → frightened mode → enemy kill loop.
    - `WeaponType` enum (BrassKnuckles, Bat, Knife, Axe, Chainsaw)
    - `ActiveWeapon(Option<WeaponType>)`, `WeaponTimer(Timer)` components on player
    - `spawn_weapons` system: place weapon pickups at `WeaponSpawn` positions
-   - `weapon_pickup` system: player touches weapon → set `ActiveWeapon`, start `WeaponTimer`, add `Frightened` marker to all enemies, play `power_pellet` SFX
+   - `weapon_pickup` system: player touches weapon → set `ActiveWeapon`, start `WeaponTimer`, add `Frightened` marker to all enemies, write `WeaponPickup` message
    - `weapon_timer` system: tick timer, on expiry remove `ActiveWeapon` and all `Frightened` markers
-   - `player_kills_enemy` system: if player has `ActiveWeapon` and `GridPosition` matches a `Frightened` enemy → despawn enemy, start `Respawning` timer, play `ghost_eaten` SFX
-   - `enemy_respawn` system: tick `Respawning` timer, on expiry re-spawn enemy at pen
+   - `player_kills_enemy` system: if player has `ActiveWeapon` and `GridPosition` matches a `Frightened` enemy → hide enemy (remove `Sprite` visibility, disable AI and movement), add `Respawning(Timer)` component, write `EnemyKilled` message. The entity is NOT despawned — it stays alive to hold the respawn timer.
+   - `enemy_respawn` system: tick `Respawning` timer on hidden enemies. On expiry, remove `Respawning`, reset `GridPosition` to pen spawn, restore visibility, add `InPen` marker so pen release logic governs re-entry.
    - `Frightened` AI override: when frightened, enemies flee (move away from player) instead of chasing
 
 **Tests:**
 - Weapon pickup sets ActiveWeapon and adds Frightened to enemies
 - Timer expiry removes weapon and Frightened
-- Player kills frightened enemy (despawn + respawn timer)
+- Player kills frightened enemy (hidden + respawn timer ticks + returns to pen)
 - Player without weapon touching enemy = death (not kill)
 - Respawning enemy returns to pen
 
@@ -206,7 +206,7 @@ Layer on the feedback systems. These are read-only consumers of game state — t
 **Steps:**
 1. Create `src/plugins/audio.rs` — `GameAudioPlugin`:
    - Music channel: loop `menu_theme` on MainMenu, crossfade to `gameplay` on InGame
-   - SFX channel: listen for game events and play corresponding sounds
+   - SFX systems: read messages written by game systems (`MoneyCollected` → `dot_pickup`, `WeaponPickup` → `power_pellet`, `EnemyKilled` → `ghost_eaten`) and play the corresponding sound via `bevy_kira_audio`. Also listen for `PlayingState` transitions (`PlayerDeath` → `death`, `LevelComplete` → `level_complete`).
    - Uses `bevy_kira_audio` channels
 2. Create `src/plugins/hud.rs` — `HudPlugin`:
    - Bevy UI overlay: score (top-left), lives (top-right), level number (top-center)
