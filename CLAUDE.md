@@ -59,6 +59,7 @@ Each character produces a PNG sprite sheet + JSON metadata sidecar in `assets/sp
 
 ## Conventions
 
+- Do not add Co-Authored-By or any AI attribution to commit messages
 - Prefer Python over shell scripts for tooling and automation
 - Binary art assets (Blender files, Quaternius packs) live in `art/` which is gitignored
 - Generated sprite sheets in `assets/sprites/` are committed (small PNGs)
