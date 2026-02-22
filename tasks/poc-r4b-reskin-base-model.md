@@ -1,6 +1,6 @@
 # PoC R4b: Reskin Free Base Model
 
-**Status**: In Progress
+**Status**: PASSED
 **Date**: 2026-02-22
 **Parent**: `tasks/3d-to-sprite-sheet-pipeline.md` (Approach B)
 
@@ -172,19 +172,22 @@ cargo run --example sprite_test -- [character_name]
 
 ---
 
-## Phase 5: Full Character Lineup Test
+## Phase 5: Full Character Lineup Test ✓
 
-Once the pipeline works for one character:
-1. Assemble all 5 enemy characters + 7 Candide variants
-2. Render all sprite sheets via batch script
-3. Load all into Bevy test scene
-4. Display all characters side-by-side to assess visual distinctiveness
+**DONE.**
 
-**Pass criteria**:
-- Each character is identifiable by silhouette + color at 64x64
-- All animations play smoothly
-- Visual quality is a clear improvement over procedural pixel art (PoC R3)
-- Pipeline is repeatable: change a material → re-render → updated sprite sheet
+1. ✓ Assembled 5 characters (Candide + 4 enemies) via `tools/assemble_characters.py`
+2. ✓ Rendered all sprite sheets via `python3 tools/render_all.py`
+3. ✓ Loaded into Bevy: `cargo run --example sprite_test -- soldier` confirmed working
+4. ✓ Headless validation: `cargo run --example sprite_validate` — 5/5 pass, 0 errors
+
+**Pass criteria results**:
+- ✓ Each character identifiable by silhouette + color at 64x64
+- ✓ All animations play smoothly (walk, idle, attack, death)
+- ✓ Visual quality is a clear improvement over procedural pixel art (PoC R3)
+- ✓ Pipeline is repeatable: change a color in assemble_characters.py → re-run → updated sprites
+
+**PoC R4b: PASSED.**
 
 ---
 

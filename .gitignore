@@ -7,3 +7,7 @@
 
 # Binary art sources (Blender files, downloaded asset packs)
 /art/
+
+# Python
+__pycache__/
+*.pyc
