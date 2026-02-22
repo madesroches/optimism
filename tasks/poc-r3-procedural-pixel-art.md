@@ -62,7 +62,7 @@ Use Bevy 0.18's `Image` API to create RGBA8 buffers:
 ```rust
 use bevy::image::Image;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-use bevy::render::render_asset::RenderAssetUsages;
+use bevy::asset::RenderAssetUsages;
 
 fn create_sprite(pixel_data: &[[u8; 4]; 256]) -> Image {
     let size = Extent3d { width: 16, height: 16, depth_or_array_layers: 1 };
