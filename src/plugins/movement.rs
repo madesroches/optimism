@@ -69,6 +69,9 @@ fn movement_validation(
         let from = grid_to_world(*pos, maze.width, maze.height);
         let to = grid_to_world(target, maze.width, maze.height);
 
+        // Record previous position for cross-through collision detection
+        commands.entity(entity).insert(PreviousGridPosition(*pos));
+
         // Update grid position immediately (gameplay logic uses GridPosition)
         *pos = target;
 
@@ -99,6 +102,7 @@ fn movement_interpolation(
             transform.translation.y = lerp.to.y;
             commands.entity(entity).remove::<MoveLerp>();
             commands.entity(entity).remove::<MoveDirection>();
+            commands.entity(entity).remove::<PreviousGridPosition>();
         }
     }
 }

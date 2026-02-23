@@ -56,6 +56,11 @@ pub struct MoveSpeed(pub f32);
 #[derive(Component, Debug, Default)]
 pub struct InputDirection(pub Option<Direction>);
 
+/// Grid position before the current move started. Used to detect
+/// head-on pass-through collisions where two entities swap tiles.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct PreviousGridPosition(pub GridPosition);
+
 /// Smooth visual interpolation between tiles.
 #[derive(Component, Debug)]
 pub struct MoveLerp {

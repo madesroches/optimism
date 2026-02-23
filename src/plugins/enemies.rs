@@ -193,21 +193,29 @@ fn remove_pen_release_timer(mut commands: Commands) {
     commands.remove_resource::<PenReleaseTimer>();
 }
 
-/// Check if any non-frightened, non-respawning enemy occupies the same tile as the player.
+/// Check if any non-frightened, non-respawning enemy occupies the same tile as the player,
+/// or if the player and enemy swapped tiles this frame (head-on pass-through).
 /// Frightened enemies are handled by combat::player_kills_enemy instead.
 #[allow(clippy::type_complexity)]
 fn enemy_player_collision(
-    player_query: Query<&GridPosition, With<Player>>,
-    enemy_query: Query<&GridPosition, (With<Enemy>, Without<InPen>, Without<Frightened>, Without<Respawning>)>,
+    player_query: Query<(&GridPosition, Option<&PreviousGridPosition>), With<Player>>,
+    enemy_query: Query<(&GridPosition, Option<&PreviousGridPosition>), (With<Enemy>, Without<InPen>, Without<Frightened>, Without<Respawning>)>,
     mut next_state: ResMut<NextState<PlayingState>>,
     mut lives: ResMut<Lives>,
     mut stats: ResMut<GameStats>,
 ) {
-    let Ok(player_pos) = player_query.single() else {
+    let Ok((player_pos, player_prev)) = player_query.single() else {
         return;
     };
-    for enemy_pos in &enemy_query {
-        if player_pos == enemy_pos {
+    for (enemy_pos, enemy_prev) in &enemy_query {
+        // Same tile
+        let same_tile = player_pos == enemy_pos;
+        // Crossed paths: player moved from A→B while enemy moved from B→A
+        let crossed = match (player_prev, enemy_prev) {
+            (Some(pp), Some(ep)) => pp.0 == *enemy_pos && ep.0 == *player_pos,
+            _ => false,
+        };
+        if same_tile || crossed {
             if lives.0 > 0 {
                 lives.0 -= 1;
             }
@@ -245,6 +253,7 @@ fn handle_player_death(
             .entity(entity)
             .remove::<MoveLerp>()
             .remove::<MoveDirection>()
+            .remove::<PreviousGridPosition>()
             .remove::<ActiveWeapon>()
             .remove::<WeaponTimer>()
             .insert(Transform::from_xyz(world.x, world.y, 10.0));
@@ -258,6 +267,7 @@ fn handle_player_death(
             .entity(entity)
             .remove::<MoveLerp>()
             .remove::<MoveDirection>()
+            .remove::<PreviousGridPosition>()
             .remove::<Frightened>()
             .remove::<Respawning>()
             .insert(InPen)
@@ -376,6 +386,33 @@ mod tests {
 
         let state = app.world().resource::<State<AppState>>();
         assert_eq!(*state.get(), AppState::GameOver);
+    }
+
+    #[test]
+    fn head_on_crossing_triggers_death() {
+        let mut app = setup_app();
+        // Player at (1,1) with PreviousGridPosition of (2,1) — moved left
+        app.world_mut().spawn((
+            Player,
+            GridPosition { x: 1, y: 1 },
+            PreviousGridPosition(GridPosition { x: 2, y: 1 }),
+            SpawnPosition(GridPosition { x: 1, y: 1 }),
+            InputDirection::default(),
+        ));
+        // Enemy at (2,1) with PreviousGridPosition of (1,1) — moved right
+        app.world_mut().spawn((
+            Enemy,
+            EnemyKind::Soldier,
+            GridPosition { x: 2, y: 1 },
+            PreviousGridPosition(GridPosition { x: 1, y: 1 }),
+            SpawnPosition(GridPosition { x: 2, y: 1 }),
+        ));
+
+        app.update();
+
+        // Crossed paths should trigger death
+        let lives = app.world().resource::<Lives>();
+        assert_eq!(lives.0, 2);
     }
 
     #[test]

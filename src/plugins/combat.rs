@@ -142,31 +142,37 @@ fn weapon_timer(
     }
 }
 
-/// Armed player kills frightened enemies on contact.
+/// Armed player kills frightened enemies on contact or head-on crossing.
 #[allow(clippy::type_complexity)]
 fn player_kills_enemy(
     mut commands: Commands,
-    player_query: Query<(&GridPosition, &ActiveWeapon), With<Player>>,
+    player_query: Query<(&GridPosition, &ActiveWeapon, Option<&PreviousGridPosition>), With<Player>>,
     enemy_query: Query<
-        (Entity, &GridPosition),
+        (Entity, &GridPosition, Option<&PreviousGridPosition>),
         (With<Enemy>, With<Frightened>, Without<Respawning>),
     >,
     mut score: ResMut<Score>,
     mut stats: ResMut<GameStats>,
 ) {
-    let Ok((player_pos, active_weapon)) = player_query.single() else {
+    let Ok((player_pos, active_weapon, player_prev)) = player_query.single() else {
         return;
     };
 
-    for (enemy_entity, enemy_pos) in &enemy_query {
-        if player_pos == enemy_pos {
+    for (enemy_entity, enemy_pos, enemy_prev) in &enemy_query {
+        let same_tile = player_pos == enemy_pos;
+        let crossed = match (player_prev, enemy_prev) {
+            (Some(pp), Some(ep)) => pp.0 == *enemy_pos && ep.0 == *player_pos,
+            _ => false,
+        };
+        if same_tile || crossed {
             commands
                 .entity(enemy_entity)
                 .insert(Respawning(Timer::from_seconds(5.0, TimerMode::Once)))
                 .insert(Visibility::Hidden)
                 .remove::<Frightened>()
                 .remove::<MoveDirection>()
-                .remove::<MoveLerp>();
+                .remove::<MoveLerp>()
+                .remove::<PreviousGridPosition>();
             *stats.kills_by_weapon.entry(active_weapon.0).or_insert(0) += 1;
             score.0 += 200;
             let total_kills: u32 = stats.kills_by_weapon.values().sum();
