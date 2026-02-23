@@ -90,56 +90,46 @@ optimism/
 │   │   ├── hud.rs                       # HudPlugin — score, lives, level display
 │   │   ├── audio.rs                     # AudioPlugin — music, SFX management
 │   │   ├── camera.rs                    # CameraPlugin — 2D camera setup
-│   │   ├── sprites.rs                   # SpriteGenPlugin — procedural sprite generation
+│   │   ├── sprites.rs                   # SpriteSheetPlugin — PNG+JSON sprite sheet loading
+│   │   ├── menu.rs                      # MenuPlugin — main menu UI
+│   │   ├── game_over.rs                # GameOverPlugin — game over screen
 │   │   └── telemetry.rs                # TelemetryPlugin — Micromegas frame instrumentation
-│   ├── ai/
-│   │   ├── mod.rs
-│   │   ├── soldier.rs                   # Direct pursuit AI
-│   │   ├── inquisitor.rs               # Exit-cutting AI
-│   │   ├── thief.rs                     # Erratic + money-stealing AI
-│   │   └── brute.rs                    # Slow persistent AI
-│   └── procgen/
+│   └── ai/
 │       ├── mod.rs
-│       ├── candide.rs                   # Candide sprite generation + item overlays
-│       ├── enemies.rs                   # Enemy sprite generation (colored variants)
-│       ├── tiles.rs                     # Wall/floor/dot tile generation
-│       ├── weapons.rs                   # Weapon sprite generation
-│       └── items.rs                     # Luxury item sprite generation
+│       ├── soldier.rs                   # Direct pursuit AI
+│       ├── inquisitor.rs               # Exit-cutting AI
+│       ├── thief.rs                     # Erratic + money-stealing AI
+│       └── brute.rs                    # Slow persistent AI
 ```
 
 ### Module responsibilities
 
 - **`plugins/`** — Each plugin is a self-contained Bevy `Plugin` that registers its own systems, events, and resources. Plugins communicate through ECS components, resources, and events — never direct function calls between plugins.
 - **`ai/`** — Enemy AI logic, separated from the ECS wiring in `plugins/enemies.rs`. Each AI module exposes a function that takes the current game state and returns a target `GridPosition`.
-- **`procgen/`** — Procedural sprite generation. Runs once during the `Loading` state. Produces `Handle<Image>` and `TextureAtlasLayout` resources consumed by other plugins.
 
 ---
 
-## 3. Procedural Art Pipeline
+## 3. Sprite Pipeline (Quaternius)
 
-All game sprites are generated in code. No external image files for game art.
+All game sprites are pre-rendered from Quaternius 3D models into 2D sprite sheets using Blender. The procedural generation approach (PoC R3) was abandoned in favor of this pipeline.
 
-### Approach
+### Pipeline
 
-At startup, `SpriteGenPlugin` runs in `OnEnter(AppState::Loading)` and generates `Image` assets by writing pixels directly into RGBA buffers. It then creates `TextureAtlas` layouts from them and inserts the handles as resources. Because these assets are created in-memory (not loaded from disk), their handles are immediately valid — no interaction with `bevy_asset_loader`'s async loading. `bevy_asset_loader` manages only the disk-based assets (audio files, fonts, map files); procedural sprites are a separate concern that completes synchronously within `OnEnter`.
+1. **Assemble** — `tools/assemble_characters.py` sets up `.blend` files from Quaternius asset packs in `art/quaternius/`
+2. **Render** — `tools/render_sprites.py` renders each character from 4 directions with walk, idle, attack, and death animations
+3. **Output** — Each character produces a PNG sprite sheet + JSON metadata sidecar in `assets/sprites/`
 
-This gives us:
-- Full control over the pixel art style
-- Deterministic, reproducible visuals
-- Zero external art dependencies
-- Easy to tweak and iterate
+### Sprite loading
 
-### Sprite categories
+`SpriteSheetPlugin` (`plugins/sprites.rs`) loads PNG+JSON pairs at runtime. The JSON describes frame layout (`frame_size`, `columns`, `rows`) and animation ranges (`walk_down`, `walk_up`, `idle`, `attack_down`, `death`, etc.). `TextureAtlasLayout` is built from the JSON. `AnimationState`, `AnimationTimer`, and `FacingDirection` components drive frame animation.
 
-**Candide** — Pre-composed sprite variants generated at startup, all the same tile-sized dimensions. The base sprite plus one variant per luxury item state (7 total: bare, grill, chain, Rolex, goblet, fur coat, gold toilet). Each variant bakes the luxury item overlay into the sprite at generation time. When Candide collects an item, the game swaps his sprite handle to the corresponding pre-composed variant. This avoids runtime pixel-buffer compositing and keeps collision/layout uniform.
+### Characters
 
-**Enemies** — Color-tinted variants of a base ghost/figure shape. Red (Soldier), Purple (Inquisitor), Yellow (Thief), Green (Brute). A "frightened" variant uses a shared blue/white palette.
-
-**Tiles** — Wall tiles with solid, border, and corner variants. Floor tiles. Money dot sprites. Generated with simple patterns.
-
-**Weapons** — One sprite per weapon type (brass knuckles, bat, knife, axe, chainsaw). Shown near Candide when active.
-
-**Luxury items** — One sprite per item type (gold grill, chain, Rolex, goblet, fur coat, gold toilet). Shown in the maze at the central spawn point.
+- **Candide** (player) — cream colored, `candide_base` sheet
+- **Soldier** (enemy) — red, A* pursuit AI
+- **Inquisitor** (enemy) — purple, exit-cutting AI
+- **Thief** (enemy) — gold, erratic movement
+- **Brute** (enemy) — green, slow persistent AI
 
 ---
 
@@ -508,7 +498,7 @@ Bevy systems are testable by constructing a minimal `World`/`App`, inserting com
 | **Frightened mode** | Weapon pickup adds `Frightened` to all enemies; timer expiry removes it; frightened enemies flee from player | Insert entities with/without `Frightened` → run AI → assert flee direction |
 | **Narration** | Correct trigger → quote displayed; no repeat of last quote; Garden level suppresses quotes | Fire `NarrationTrigger` event → run narration system → assert UI entity spawned with expected text |
 | **Level progression** | Level config maps correctly; speed multiplier increases; weapon duration decreases; Garden level has no enemies | Assert `LevelConfig` values for each level range |
-| **Sprite generation** | Buffers have correct dimensions; no panics on generation; color values in expected ranges | Run procgen functions → assert `Image` dimensions and sample pixel values |
+| **Sprite loading** | Sprite sheets load correctly; animations resolve by direction; frame advancement works | Load PNG+JSON → assert atlas layout, animation keys, frame counts |
 | **State transitions** | `Loading` → `MainMenu` → `InGame` → `GameOver` flow; `PlayingState` substates transition correctly | Drive state machine → assert current state after each transition |
 | **Telemetry** | Micromegas macros don't panic; metrics emit expected values | Run instrumented systems → assert no panics (telemetry output verified by log inspection) |
 
@@ -558,11 +548,9 @@ All six game crates compile together against Bevy 0.18 on Rust 1.93. Version cor
 
 ### High — would require significant rework
 
-**R3. Procedural pixel art quality** — **PoC**
+**R3. Procedural pixel art quality** — **ABANDONED → Quaternius adopted**
 
-All game visuals are generated by writing pixels into RGBA buffers in Rust code. There's no precedent for an AI coding agent producing recognizable pixel art this way. If sprites look like colored noise, the game is unplayable regardless of how correct the logic is. The Candide variants (7 states), enemy shapes (4 colors + frightened), and tile patterns all need to be visually distinguishable at small sizes.
-
-*PoC: Generate a 16x16 Candide sprite, one enemy sprite, and wall/floor/dot tiles. Render them in a Bevy window on a small test grid. Visual pass/fail: can you tell what things are?*
+The procedural pixel art approach (PoC R3) was abandoned after producing unsatisfactory results. The project now uses pre-rendered sprite sheets from Quaternius 3D models via a Blender pipeline (`tools/render_sprites.py`). See Section 3 for details.
 
 **R4. Bevy headless testing** — **PoC DONE** (see `tasks/poc-r4-headless-testing.md`)
 
@@ -593,7 +581,7 @@ Procedural audio pipeline validated: MIDI+FluidSynth renders harpsichord music, 
 ## 14. Implementation Order
 
 1. Scaffold Cargo project + Bevy app with states and camera
-2. Procedural sprite generation (basic shapes)
+2. Sprite sheet loading (Quaternius pipeline)
 3. Grid movement system + maze loading from plain text files
 4. Player input and movement
 5. Money collection + score

@@ -8,6 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - Game design: `docs/concept/OPTIMISM.md`
 - Architecture: `docs/architecture/ARCHITECTURE.md`
+- Level design: `docs/level_design_guidelines.md`
 - Task tracking: `tasks/` (PoC phases R1–R4b)
 
 ## Build and Run

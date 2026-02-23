@@ -1,6 +1,7 @@
 //! Enemy spawning, AI dispatch, collision with player, death handling, and pen release.
 
 use bevy::prelude::*;
+use micromegas::tracing::prelude::span_scope;
 
 use crate::ai;
 use crate::app_state::{AppState, PlayingState};
@@ -10,7 +11,7 @@ use crate::plugins::maze::{grid_to_world, load_maze, MazeMap, MazeEntity, TILE_S
 use crate::plugins::sprites::{
     AnimationState, AnimationTimer, CharacterSheetRef, FacingDirection, SpriteSheetLibrary,
 };
-use crate::resources::Lives;
+use crate::resources::{GameStats, LevelConfig, Lives};
 
 pub struct EnemyPlugin;
 
@@ -26,6 +27,10 @@ impl Plugin for EnemyPlugin {
                 .run_if(in_state(PlayingState::Playing)),
         );
         app.add_systems(OnEnter(PlayingState::PlayerDeath), handle_player_death);
+        app.add_systems(
+            OnEnter(PlayingState::LevelIntro),
+            init_pen_release_timer.after(load_maze),
+        );
         app.insert_resource(PenReleaseTimer {
             timer: Timer::from_seconds(3.0, TimerMode::Repeating),
         });
@@ -46,10 +51,16 @@ pub struct PenReleaseTimer {
 pub fn spawn_enemies(
     mut commands: Commands,
     maze: Res<MazeMap>,
+    config: Res<LevelConfig>,
     mut library: ResMut<SpriteSheetLibrary>,
     asset_server: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
+    // Skip spawning if speed multiplier is 0 (garden level)
+    if config.enemy_speed_multiplier == 0.0 {
+        return;
+    }
+
     let enemy_types = [
         ("soldier", EnemyKind::Soldier, 4.5),
         ("inquisitor", EnemyKind::Inquisitor, 4.0),
@@ -58,12 +69,12 @@ pub fn spawn_enemies(
     ];
 
     for (i, spawn_pos) in maze.enemy_spawns.iter().enumerate() {
-        let (name, kind, speed) = if i < enemy_types.len() {
+        let (name, kind, base_speed) = if i < enemy_types.len() {
             enemy_types[i]
         } else {
-            // Extra spawns cycle through enemy types
             enemy_types[i % enemy_types.len()]
         };
+        let speed = base_speed * config.enemy_speed_multiplier;
 
         // Load sprite sheet if needed
         if !library.sheets.contains_key(name) {
@@ -128,6 +139,8 @@ fn enemy_ai(
     >,
     mut commands: Commands,
 ) {
+    span_scope!("enemy_ai");
+
     let Ok((player_pos, player_facing)) = player_query.single() else {
         return;
     };
@@ -166,6 +179,11 @@ fn enemy_ai(
     }
 }
 
+/// Reset pen release timer from LevelConfig at start of each level.
+fn init_pen_release_timer(mut timer: ResMut<PenReleaseTimer>, config: Res<LevelConfig>) {
+    timer.timer = Timer::from_seconds(config.pen_release_interval_secs, TimerMode::Repeating);
+}
+
 /// Check if any non-frightened, non-respawning enemy occupies the same tile as the player.
 /// Frightened enemies are handled by combat::player_kills_enemy instead.
 #[allow(clippy::type_complexity)]
@@ -174,6 +192,7 @@ fn enemy_player_collision(
     enemy_query: Query<&GridPosition, (With<Enemy>, Without<InPen>, Without<Frightened>, Without<Respawning>)>,
     mut next_state: ResMut<NextState<PlayingState>>,
     mut lives: ResMut<Lives>,
+    mut stats: ResMut<GameStats>,
 ) {
     let Ok(player_pos) = player_query.single() else {
         return;
@@ -183,6 +202,7 @@ fn enemy_player_collision(
             if lives.0 > 0 {
                 lives.0 -= 1;
             }
+            stats.deaths += 1;
             next_state.set(PlayingState::PlayerDeath);
             return;
         }
@@ -249,6 +269,7 @@ mod tests {
         app.init_state::<AppState>();
         app.add_sub_state::<PlayingState>();
         app.insert_resource(Lives(3));
+        app.init_resource::<GameStats>();
         app.insert_resource(PenReleaseTimer {
             timer: Timer::from_seconds(0.1, TimerMode::Repeating),
         });

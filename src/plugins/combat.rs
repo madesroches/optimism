@@ -1,11 +1,13 @@
 //! Weapons and combat: weapon pickups, frightened mode, enemy kills, respawning.
 
 use bevy::prelude::*;
+use micromegas::tracing::prelude::{imetric, info};
 
 use crate::app_state::PlayingState;
 use crate::components::*;
 use crate::events::{EnemyKilled, WeaponPickedUp};
 use crate::plugins::maze::{grid_to_world, load_maze, MazeMap, MazeEntity, TILE_SIZE};
+use crate::resources::{GameStats, LevelConfig};
 
 pub struct CombatPlugin;
 
@@ -33,7 +35,7 @@ impl Plugin for CombatPlugin {
 // ---------------------------------------------------------------------------
 
 /// Weapon type determines combat flavor and score bonus.
-#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WeaponType {
     BrassKnuckles,
     Bat,
@@ -66,15 +68,15 @@ pub struct Respawning(pub Timer);
 // Systems
 // ---------------------------------------------------------------------------
 
-/// Spawn weapon pickups at WeaponSpawn positions.
-fn spawn_weapons(mut commands: Commands, maze: Res<MazeMap>) {
+/// Spawn weapon pickups at WeaponSpawn positions using LevelConfig.
+fn spawn_weapons(mut commands: Commands, maze: Res<MazeMap>, config: Res<LevelConfig>) {
     let weapon_color = Color::srgb(0.9, 0.2, 0.2);
 
     for spawn_pos in &maze.weapon_spawns {
         let world_pos = grid_to_world(*spawn_pos, maze.width, maze.height);
         commands.spawn((
             WeaponPickup,
-            WeaponType::BrassKnuckles, // Default; Phase 7 varies by level
+            config.weapon_type,
             *spawn_pos,
             MazeEntity,
             Sprite::from_color(weapon_color, Vec2::splat(TILE_SIZE * 0.6)),
@@ -90,29 +92,29 @@ fn weapon_pickup(
     player_query: Query<(Entity, &GridPosition), With<Player>>,
     weapon_query: Query<(Entity, &GridPosition, &WeaponType), With<WeaponPickup>>,
     enemy_query: Query<Entity, (With<Enemy>, Without<Frightened>, Without<Respawning>)>,
+    config: Option<Res<LevelConfig>>,
 ) {
     let Ok((player_entity, player_pos)) = player_query.single() else {
         return;
     };
 
+    let duration = config.map(|c| c.weapon_duration_secs).unwrap_or(8.0);
+
     for (weapon_entity, weapon_pos, weapon_type) in &weapon_query {
         if player_pos == weapon_pos {
-            // Despawn the pickup
             commands.entity(weapon_entity).despawn();
 
-            // Give player the weapon
             commands.entity(player_entity).insert((
                 ActiveWeapon(*weapon_type),
-                WeaponTimer(Timer::from_seconds(8.0, TimerMode::Once)),
+                WeaponTimer(Timer::from_seconds(duration, TimerMode::Once)),
             ));
 
-            // Frighten all non-respawning enemies
             for enemy_entity in &enemy_query {
                 commands.entity(enemy_entity).insert(Frightened);
             }
 
             commands.trigger(WeaponPickedUp);
-            break; // Only pick up one weapon per frame
+            break;
         }
     }
 }
@@ -144,25 +146,29 @@ fn weapon_timer(
 #[allow(clippy::type_complexity)]
 fn player_kills_enemy(
     mut commands: Commands,
-    player_query: Query<&GridPosition, (With<Player>, With<ActiveWeapon>)>,
+    player_query: Query<(&GridPosition, &ActiveWeapon), With<Player>>,
     enemy_query: Query<
         (Entity, &GridPosition),
         (With<Enemy>, With<Frightened>, Without<Respawning>),
     >,
+    mut stats: ResMut<GameStats>,
 ) {
-    let Ok(player_pos) = player_query.single() else {
+    let Ok((player_pos, active_weapon)) = player_query.single() else {
         return;
     };
 
     for (enemy_entity, enemy_pos) in &enemy_query {
         if player_pos == enemy_pos {
-            // Hide the enemy and start respawn timer
             commands
                 .entity(enemy_entity)
                 .insert(Respawning(Timer::from_seconds(5.0, TimerMode::Once)))
                 .insert(Visibility::Hidden)
                 .remove::<Frightened>()
                 .remove::<MoveDirection>();
+            *stats.kills_by_weapon.entry(active_weapon.0).or_insert(0) += 1;
+            let total_kills: u32 = stats.kills_by_weapon.values().sum();
+            info!("enemy_killed: weapon={:?}", active_weapon.0);
+            imetric!("kills", "count", total_kills as u64);
             commands.trigger(EnemyKilled);
         }
     }
@@ -236,6 +242,7 @@ mod tests {
         app.add_plugins(StatesPlugin);
         app.init_state::<crate::app_state::AppState>();
         app.add_sub_state::<PlayingState>();
+        app.init_resource::<GameStats>();
         app.add_systems(
             Update,
             (weapon_pickup, player_kills_enemy.after(weapon_pickup))

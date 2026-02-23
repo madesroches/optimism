@@ -4,10 +4,11 @@
 //! for pathfinding. Walls and floors are rendered as colored rectangles.
 
 use bevy::prelude::*;
+use micromegas::tracing::prelude::{info, span_scope};
 
 use crate::app_state::PlayingState;
 use crate::components::{GridPosition, Money, Wall};
-use crate::resources::CurrentLevel;
+use crate::resources::{level_config, CurrentLevel, LevelConfig};
 
 pub struct MazePlugin;
 
@@ -15,7 +16,30 @@ impl Plugin for MazePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             OnEnter(PlayingState::LevelIntro),
-            (load_maze, auto_start_level.after(load_maze)),
+            (
+                update_level_config,
+                load_maze.after(update_level_config),
+                show_level_intro.after(load_maze),
+            ),
+        );
+        app.add_systems(
+            Update,
+            level_intro_input.run_if(in_state(PlayingState::LevelIntro)),
+        );
+        app.add_systems(OnExit(PlayingState::LevelIntro), despawn_level_intro_ui);
+
+        app.add_systems(
+            OnEnter(PlayingState::LevelComplete),
+            start_level_complete_timer,
+        );
+        app.add_systems(
+            Update,
+            level_complete_delay.run_if(in_state(PlayingState::LevelComplete)),
+        );
+
+        app.add_systems(
+            OnEnter(PlayingState::LevelTransition),
+            (despawn_maze_entities, advance_level.after(despawn_maze_entities)),
         );
     }
 }
@@ -233,19 +257,46 @@ pub struct MazeEntity;
 // Systems
 // ---------------------------------------------------------------------------
 
-/// Level-to-map-file mapping.
-fn map_file_for_level(level: u32) -> String {
-    match level {
-        1 => "assets/maps/level_01.txt".to_string(),
-        // Phases 7 adds more levels; for now cycle back to level 1
-        _ => "assets/maps/level_01.txt".to_string(),
-    }
+// ---------------------------------------------------------------------------
+// Level intro UI
+// ---------------------------------------------------------------------------
+
+#[derive(Component)]
+pub struct LevelIntroUI;
+
+#[derive(Resource, Deref, DerefMut)]
+pub struct LevelIntroTimer(pub Timer);
+
+#[derive(Resource, Deref, DerefMut)]
+pub struct LevelCompleteTimer(pub Timer);
+
+/// Pangloss quotes for level intros.
+const INTRO_QUOTES: &[&str] = &[
+    "All is for the best in this best of all possible worlds.",
+    "Let us cultivate our garden.",
+    "Optimism is the madness of insisting that all is well.",
+    "We must cultivate our garden, said Candide.",
+    "In this best of all possible worlds, all events are linked.",
+    "The nose was formed to bear spectacles.",
+    "Private misfortunes make for the general good.",
+    "There is no effect without a cause.",
+    "Everything is necessary, everything is useful.",
+    "If this is the best of worlds, what are the others?",
+    "Man was not born to be idle.",
+    "Work keeps at bay three great evils: boredom, vice, and need.",
+    "Judge a man by his questions rather than his answers.",
+];
+
+/// Insert LevelConfig resource for the current level.
+fn update_level_config(mut commands: Commands, level: Res<CurrentLevel>) {
+    commands.insert_resource(level_config(level.0));
 }
 
 /// Load and spawn the maze for the current level.
-pub fn load_maze(mut commands: Commands, level: Res<CurrentLevel>) {
-    let path = map_file_for_level(level.0);
-    let text = std::fs::read_to_string(&path)
+pub fn load_maze(mut commands: Commands, config: Res<LevelConfig>) {
+    span_scope!("maze_load");
+    let path = &config.maze_file;
+    let text = std::fs::read_to_string(path)
         .unwrap_or_else(|e| panic!("Failed to read maze file {}: {}", path, e));
 
     let maze = MazeMap::parse(&text)
@@ -261,7 +312,6 @@ pub fn load_maze(mut commands: Commands, level: Res<CurrentLevel>) {
             };
             let world_pos = grid_to_world(pos, maze.width, maze.height);
 
-            // Floor background for all walkable tiles
             match tile {
                 TileType::Wall => {
                     commands.spawn((
@@ -273,7 +323,6 @@ pub fn load_maze(mut commands: Commands, level: Res<CurrentLevel>) {
                     ));
                 }
                 TileType::PenGate => {
-                    // Floor under the gate
                     commands.spawn((
                         MazeEntity,
                         Sprite::from_color(FLOOR_COLOR, Vec2::splat(TILE_SIZE)),
@@ -288,13 +337,11 @@ pub fn load_maze(mut commands: Commands, level: Res<CurrentLevel>) {
                     ));
                 }
                 TileType::Money => {
-                    // Floor background
                     commands.spawn((
                         MazeEntity,
                         Sprite::from_color(FLOOR_COLOR, Vec2::splat(TILE_SIZE)),
                         Transform::from_xyz(world_pos.x, world_pos.y, 0.0),
                     ));
-                    // Money dot
                     commands.spawn((
                         Money,
                         pos,
@@ -304,7 +351,6 @@ pub fn load_maze(mut commands: Commands, level: Res<CurrentLevel>) {
                     ));
                 }
                 _ => {
-                    // Floor tile for empty, spawns, etc.
                     commands.spawn((
                         MazeEntity,
                         Sprite::from_color(FLOOR_COLOR, Vec2::splat(TILE_SIZE)),
@@ -315,13 +361,118 @@ pub fn load_maze(mut commands: Commands, level: Res<CurrentLevel>) {
         }
     }
 
+    info!("maze loaded: {} ({}x{})", path, maze.width, maze.height);
     commands.insert_resource(maze);
 }
 
-/// Temporary shim: immediately transition from LevelIntro to Playing.
-/// Phase 7 replaces this with a real intro screen.
-fn auto_start_level(mut next_state: ResMut<NextState<PlayingState>>) {
-    next_state.set(PlayingState::Playing);
+/// Show level intro UI with level number and a Pangloss quote.
+fn show_level_intro(mut commands: Commands, level: Res<CurrentLevel>) {
+    let quote_idx = (level.0 as usize).wrapping_sub(1) % INTRO_QUOTES.len();
+    let quote = INTRO_QUOTES[quote_idx];
+
+    commands.insert_resource(LevelIntroTimer(Timer::from_seconds(3.0, TimerMode::Once)));
+
+    commands
+        .spawn((
+            LevelIntroUI,
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                row_gap: Val::Px(16.0),
+                ..default()
+            },
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new(format!("Level {}", level.0)),
+                TextColor(Color::srgb(1.0, 0.85, 0.0)),
+                TextFont {
+                    font_size: 48.0,
+                    ..default()
+                },
+            ));
+            parent.spawn((
+                Text::new(quote.to_string()),
+                TextColor(Color::srgb(0.8, 0.8, 0.9)),
+                TextFont {
+                    font_size: 18.0,
+                    ..default()
+                },
+            ));
+            parent.spawn((
+                Text::new("Press Enter to begin"),
+                TextColor(Color::srgb(0.6, 0.6, 0.6)),
+                TextFont {
+                    font_size: 16.0,
+                    ..default()
+                },
+            ));
+        });
+}
+
+/// Tick intro timer or respond to Enter press → transition to Playing.
+fn level_intro_input(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+    mut timer: ResMut<LevelIntroTimer>,
+    mut next_state: ResMut<NextState<PlayingState>>,
+) {
+    timer.tick(time.delta());
+    if timer.just_finished() || keyboard.just_pressed(KeyCode::Enter) {
+        next_state.set(PlayingState::Playing);
+    }
+}
+
+/// Clean up level intro UI.
+fn despawn_level_intro_ui(
+    mut commands: Commands,
+    query: Query<Entity, With<LevelIntroUI>>,
+) {
+    for entity in &query {
+        commands.entity(entity).despawn();
+    }
+    commands.remove_resource::<LevelIntroTimer>();
+}
+
+/// Start a 1.5s timer on LevelComplete.
+fn start_level_complete_timer(mut commands: Commands) {
+    commands.insert_resource(LevelCompleteTimer(Timer::from_seconds(1.5, TimerMode::Once)));
+}
+
+/// Tick level complete timer → transition to LevelTransition.
+fn level_complete_delay(
+    time: Res<Time>,
+    mut timer: ResMut<LevelCompleteTimer>,
+    mut next_state: ResMut<NextState<PlayingState>>,
+) {
+    timer.tick(time.delta());
+    if timer.just_finished() {
+        next_state.set(PlayingState::LevelTransition);
+    }
+}
+
+/// Despawn all maze entities during level transition.
+fn despawn_maze_entities(
+    mut commands: Commands,
+    query: Query<Entity, With<MazeEntity>>,
+) {
+    for entity in &query {
+        commands.entity(entity).despawn();
+    }
+    commands.remove_resource::<MazeMap>();
+    commands.remove_resource::<LevelCompleteTimer>();
+}
+
+/// Increment level and transition back to LevelIntro.
+fn advance_level(
+    mut level: ResMut<CurrentLevel>,
+    mut next_state: ResMut<NextState<PlayingState>>,
+) {
+    level.0 += 1;
+    next_state.set(PlayingState::LevelIntro);
 }
 
 // ---------------------------------------------------------------------------
@@ -446,5 +597,27 @@ mod tests {
         assert!(neighbors.contains(&GridPosition { x: 1, y: 1 }));
         assert!(neighbors.contains(&GridPosition { x: 2, y: 2 }));
         assert!(!neighbors.contains(&GridPosition { x: 0, y: 2 })); // wall
+    }
+
+    #[test]
+    fn parse_all_level_files() {
+        for name in &["level_01", "level_02", "level_03", "level_04", "garden"] {
+            let path = format!("assets/maps/{}.txt", name);
+            let text = std::fs::read_to_string(&path)
+                .unwrap_or_else(|e| panic!("Failed to read {}: {}", path, e));
+            let maze = MazeMap::parse(&text)
+                .unwrap_or_else(|e| panic!("Failed to parse {}: {}", path, e));
+            assert!(maze.width > 0, "{} has zero width", name);
+            assert!(maze.height > 0, "{} has zero height", name);
+        }
+    }
+
+    #[test]
+    fn garden_has_no_enemies_or_weapons() {
+        let text = std::fs::read_to_string("assets/maps/garden.txt").unwrap();
+        let maze = MazeMap::parse(&text).unwrap();
+        assert!(maze.enemy_spawns.is_empty(), "Garden should have no enemy spawns");
+        assert!(maze.weapon_spawns.is_empty(), "Garden should have no weapon spawns");
+        assert!(maze.luxury_spawns.is_empty(), "Garden should have no luxury spawns");
     }
 }

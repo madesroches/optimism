@@ -96,3 +96,25 @@ pub struct Money;
 /// Spawn position for respawning after death.
 #[derive(Component, Debug, Clone, Copy)]
 pub struct SpawnPosition(pub GridPosition);
+
+// ---------------------------------------------------------------------------
+// Luxury items
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum LuxuryType {
+    GoldGrill,
+    Chain,
+    Rolex,
+    Goblet,
+    FurCoat,
+    GoldToilet,
+}
+
+/// Marker component for luxury item entities in the maze.
+#[derive(Component, Debug)]
+pub struct LuxuryItem(pub LuxuryType);
+
+/// Timer before a luxury item despawns if not collected.
+#[derive(Component, Debug, Deref, DerefMut)]
+pub struct LuxuryTimeout(pub Timer);

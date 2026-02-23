@@ -10,3 +10,6 @@ pub struct WeaponPickedUp;
 
 #[derive(Event)]
 pub struct EnemyKilled;
+
+#[derive(Event)]
+pub struct LuxuryCollected;

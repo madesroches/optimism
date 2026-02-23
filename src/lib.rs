@@ -15,13 +15,16 @@ use plugins::camera::CameraPlugin;
 use plugins::collectibles::CollectiblePlugin;
 use plugins::combat::CombatPlugin;
 use plugins::enemies::EnemyPlugin;
+use plugins::game_over::GameOverPlugin;
 use plugins::hud::HudPlugin;
 use plugins::maze::MazePlugin;
+use plugins::menu::MenuPlugin;
 use plugins::movement::MovementPlugin;
 use plugins::narration::NarrationPlugin;
 use plugins::player::PlayerPlugin;
 use plugins::sprites::SpriteSheetPlugin;
-use resources::{AudioAssets, CurrentLevel, Lives, Score};
+use plugins::telemetry::TelemetryPlugin;
+use resources::{AudioAssets, CurrentLevel, GameStats, Lives, Score};
 
 pub struct OptimismPlugin;
 
@@ -46,11 +49,15 @@ impl Plugin for OptimismPlugin {
         app.add_plugins(GameAudioPlugin);
         app.add_plugins(HudPlugin);
         app.add_plugins(NarrationPlugin);
+        app.add_plugins(MenuPlugin);
+        app.add_plugins(GameOverPlugin);
+        app.add_plugins(TelemetryPlugin);
 
         // Resources
         app.insert_resource(Score(0));
         app.insert_resource(CurrentLevel(1));
         app.insert_resource(Lives(3));
+        app.init_resource::<GameStats>();
 
         // Asset loading
         app.add_loading_state(
@@ -58,12 +65,5 @@ impl Plugin for OptimismPlugin {
                 .continue_to_state(AppState::MainMenu)
                 .load_collection::<AudioAssets>(),
         );
-
-        // Temporary: skip main menu until Phase 7
-        app.add_systems(OnEnter(AppState::MainMenu), skip_to_in_game);
     }
-}
-
-fn skip_to_in_game(mut next_state: ResMut<NextState<AppState>>) {
-    next_state.set(AppState::InGame);
 }
