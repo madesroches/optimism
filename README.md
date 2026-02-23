@@ -1,6 +1,6 @@
 # Optimism
 
-A Pac-Man-inspired game loosely based on Voltaire's *Candide, ou l'Optimisme*, built with [Bevy](https://bevyengine.org/) and instrumented with [Micromegas](https://github.com/madesroches/micromegas) telemetry.
+A Pac-Man-inspired game loosely based on Voltaire's *Candide, ou l'Optimisme*, built with [Bevy](https://bevyengine.org/) and instrumented with [Micromegas](https://madesroches.github.io/micromegas/) telemetry.
 
 Play as **Candide**, navigating mazes, collecting money, and fighting off the Misfortunes — the Soldier, the Inquisitor, the Thief, and the Brute — while **Pangloss** narrates with increasingly unhinged optimism.
 
@@ -12,14 +12,14 @@ Weapons escalate from brass knuckles to chainsaw. Luxury items make you look rid
 
 ## Purpose
 
-This project serves as a tutorial demonstrating how to integrate [Micromegas](https://github.com/madesroches/micromegas) telemetry into a Rust game. Spans, metrics, and structured logging are woven into every system — not bolted on as an afterthought.
+This project serves as a tutorial demonstrating how to integrate [Micromegas](https://madesroches.github.io/micromegas/) telemetry into a Rust game. Spans, metrics, and structured logging are woven into every system — not bolted on as an afterthought.
 
 ## Tech Stack
 
 | Crate | Purpose |
 |-------|---------|
 | [Bevy 0.18](https://bevyengine.org/) | Game engine (2D rendering, ECS, UI) |
-| [Micromegas 0.20](https://github.com/madesroches/micromegas) | Telemetry: spans, metrics, structured logging |
+| [Micromegas 0.20](https://madesroches.github.io/micromegas/) | Telemetry: spans, metrics, structured logging |
 | [Avian2D 0.5](https://github.com/Jondolf/avian) | 2D physics (wall colliders, sensor triggers) |
 | [bevy_kira_audio 0.25](https://github.com/NiklasEi/bevy_kira_audio) | Audio playback |
 | [bevy_asset_loader 0.25](https://github.com/NiklasEi/bevy_asset_loader) | Declarative asset loading |
