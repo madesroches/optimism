@@ -134,7 +134,7 @@ fn despawn_old_narration(commands: &mut Commands, query: &Query<Entity, With<Nar
 }
 
 fn is_garden_level(level: &CurrentLevel) -> bool {
-    level.0 == GARDEN_LEVEL
+    level.0 >= GARDEN_LEVEL
 }
 
 // ---------------------------------------------------------------------------
