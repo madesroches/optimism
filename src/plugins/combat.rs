@@ -164,7 +164,8 @@ fn player_kills_enemy(
                 .insert(Respawning(Timer::from_seconds(5.0, TimerMode::Once)))
                 .insert(Visibility::Hidden)
                 .remove::<Frightened>()
-                .remove::<MoveDirection>();
+                .remove::<MoveDirection>()
+                .remove::<MoveLerp>();
             *stats.kills_by_weapon.entry(active_weapon.0).or_insert(0) += 1;
             let total_kills: u32 = stats.kills_by_weapon.values().sum();
             info!("enemy_killed: weapon={:?}", active_weapon.0);

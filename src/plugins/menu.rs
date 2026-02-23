@@ -3,7 +3,6 @@
 use bevy::prelude::*;
 
 use crate::app_state::AppState;
-use crate::resources::{CurrentLevel, GameStats, Lives, Score};
 
 pub struct MenuPlugin;
 
@@ -81,17 +80,8 @@ fn despawn_menu(mut commands: Commands, query: Query<Entity, With<MenuRoot>>) {
 fn menu_input(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<AppState>>,
-    mut score: ResMut<Score>,
-    mut lives: ResMut<Lives>,
-    mut level: ResMut<CurrentLevel>,
-    mut stats: ResMut<GameStats>,
 ) {
     if keyboard.just_pressed(KeyCode::Enter) {
-        // Reset game state for a new game
-        score.0 = 0;
-        lives.0 = 3;
-        level.0 = 1;
-        *stats = GameStats::default();
         next_state.set(AppState::InGame);
     }
 }
@@ -111,10 +101,6 @@ mod tests {
         app.add_plugins(StatesPlugin);
         app.init_state::<AppState>();
         app.add_sub_state::<crate::app_state::PlayingState>();
-        app.insert_resource(Score(0));
-        app.insert_resource(Lives(3));
-        app.insert_resource(CurrentLevel(1));
-        app.init_resource::<GameStats>();
         app.init_resource::<ButtonInput<KeyCode>>();
         app.add_plugins(MenuPlugin);
         app
@@ -164,25 +150,15 @@ mod tests {
     }
 
     #[test]
-    fn enter_resets_and_starts_game() {
+    fn enter_starts_game() {
         let mut app = setup_app();
         transition_to_main_menu(&mut app);
-
-        // Set dirty state
-        app.world_mut().resource_mut::<Score>().0 = 999;
-        app.world_mut().resource_mut::<Lives>().0 = 0;
-        app.world_mut().resource_mut::<CurrentLevel>().0 = 5;
 
         // Simulate Enter press
         let mut input = ButtonInput::<KeyCode>::default();
         input.press(KeyCode::Enter);
         app.insert_resource(input);
         app.update();
-
-        // State should have been reset
-        assert_eq!(app.world().resource::<Score>().0, 0);
-        assert_eq!(app.world().resource::<Lives>().0, 3);
-        assert_eq!(app.world().resource::<CurrentLevel>().0, 1);
 
         // Should transition to InGame
         for _ in 0..5 {

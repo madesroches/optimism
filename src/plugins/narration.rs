@@ -10,8 +10,6 @@ pub struct NarrationPlugin;
 
 impl Plugin for NarrationPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<NarrationState>();
-
         app.add_observer(on_money_collected);
         app.add_observer(on_weapon_picked_up);
         app.add_observer(on_enemy_killed);
@@ -77,6 +75,7 @@ const LEVEL_START_QUOTES: &[&str] = &[
 #[derive(Resource, Default)]
 pub struct NarrationState {
     pub last_quote: Option<usize>,
+    pub money_counter: u32,
 }
 
 #[derive(Component)]
@@ -151,13 +150,12 @@ fn on_money_collected(
     mut state: ResMut<NarrationState>,
     level: Res<CurrentLevel>,
     existing: Query<Entity, With<NarrationText>>,
-    mut counter: Local<u32>,
 ) {
     if is_garden_level(&level) {
         return;
     }
-    *counter += 1;
-    if !(*counter).is_multiple_of(5) {
+    state.money_counter += 1;
+    if !state.money_counter.is_multiple_of(5) {
         return;
     }
     despawn_old_narration(&mut commands, &existing);

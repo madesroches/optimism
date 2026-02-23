@@ -6,7 +6,7 @@
 use bevy::prelude::*;
 use micromegas::tracing::prelude::{info, span_scope};
 
-use crate::app_state::PlayingState;
+use crate::app_state::{AppState, PlayingState};
 use crate::components::{GridPosition, Money, Wall};
 use crate::resources::{level_config, CurrentLevel, LevelConfig};
 
@@ -41,6 +41,11 @@ impl Plugin for MazePlugin {
             OnEnter(PlayingState::LevelTransition),
             (despawn_maze_entities, advance_level.after(despawn_maze_entities)),
         );
+
+        // Clean up all maze entities when leaving InGame (e.g. GameOver).
+        // LevelTransition already despawns them for normal level progression,
+        // but exiting via GameOver skips that path entirely.
+        app.add_systems(OnExit(AppState::InGame), cleanup_on_exit_game);
     }
 }
 
@@ -464,6 +469,20 @@ fn despawn_maze_entities(
     }
     commands.remove_resource::<MazeMap>();
     commands.remove_resource::<LevelCompleteTimer>();
+    commands.remove_resource::<LevelConfig>();
+}
+
+/// Clean up maze entities when exiting InGame state (covers GameOver path).
+fn cleanup_on_exit_game(
+    mut commands: Commands,
+    query: Query<Entity, With<MazeEntity>>,
+) {
+    for entity in &query {
+        commands.entity(entity).despawn();
+    }
+    commands.remove_resource::<MazeMap>();
+    commands.remove_resource::<LevelCompleteTimer>();
+    commands.remove_resource::<LevelConfig>();
 }
 
 /// Increment level and transition back to LevelIntro.

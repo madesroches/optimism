@@ -24,6 +24,7 @@ use plugins::narration::NarrationPlugin;
 use plugins::player::PlayerPlugin;
 use plugins::sprites::SpriteSheetPlugin;
 use plugins::telemetry::TelemetryPlugin;
+use plugins::narration::NarrationState;
 use resources::{AudioAssets, CurrentLevel, GameStats, Lives, Score};
 
 pub struct OptimismPlugin;
@@ -53,11 +54,10 @@ impl Plugin for OptimismPlugin {
         app.add_plugins(GameOverPlugin);
         app.add_plugins(TelemetryPlugin);
 
-        // Resources
-        app.insert_resource(Score(0));
-        app.insert_resource(CurrentLevel(1));
-        app.insert_resource(Lives(3));
-        app.init_resource::<GameStats>();
+        // Per-game-session resources: inserted fresh on each game start,
+        // persist through GameOver for stats display, cleaned up on exit.
+        app.add_systems(OnEnter(AppState::InGame), init_game_session);
+        app.add_systems(OnExit(AppState::GameOver), cleanup_game_session);
 
         // Asset loading
         app.add_loading_state(
@@ -66,4 +66,25 @@ impl Plugin for OptimismPlugin {
                 .load_collection::<AudioAssets>(),
         );
     }
+}
+
+/// Insert per-game-session resources with fresh defaults.
+/// Runs on each `OnEnter(AppState::InGame)`, so a new game always starts clean.
+/// These resources persist through `GameOver` for stats display and are
+/// cleaned up on `OnExit(GameOver)`.
+fn init_game_session(mut commands: Commands) {
+    commands.insert_resource(Score(0));
+    commands.insert_resource(CurrentLevel(1));
+    commands.insert_resource(Lives(3));
+    commands.insert_resource(GameStats::default());
+    commands.insert_resource(NarrationState::default());
+}
+
+/// Remove per-game-session resources when leaving GameOver.
+fn cleanup_game_session(mut commands: Commands) {
+    commands.remove_resource::<Score>();
+    commands.remove_resource::<CurrentLevel>();
+    commands.remove_resource::<Lives>();
+    commands.remove_resource::<GameStats>();
+    commands.remove_resource::<NarrationState>();
 }

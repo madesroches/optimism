@@ -31,13 +31,15 @@ impl Plugin for EnemyPlugin {
             OnEnter(PlayingState::LevelIntro),
             init_pen_release_timer.after(load_maze),
         );
-        app.insert_resource(PenReleaseTimer {
-            timer: Timer::from_seconds(3.0, TimerMode::Repeating),
-        });
         app.add_systems(
             Update,
             pen_release.run_if(in_state(PlayingState::Playing)),
         );
+        app.add_systems(
+            OnEnter(PlayingState::LevelTransition),
+            remove_pen_release_timer,
+        );
+        app.add_systems(OnExit(AppState::InGame), remove_pen_release_timer);
     }
 }
 
@@ -179,16 +181,23 @@ fn enemy_ai(
     }
 }
 
-/// Reset pen release timer from LevelConfig at start of each level.
-fn init_pen_release_timer(mut timer: ResMut<PenReleaseTimer>, config: Res<LevelConfig>) {
-    timer.timer = Timer::from_seconds(config.pen_release_interval_secs, TimerMode::Repeating);
+/// Insert a fresh pen release timer from LevelConfig at start of each level.
+fn init_pen_release_timer(mut commands: Commands, config: Res<LevelConfig>) {
+    commands.insert_resource(PenReleaseTimer {
+        timer: Timer::from_seconds(config.pen_release_interval_secs, TimerMode::Repeating),
+    });
+}
+
+/// Remove the pen release timer when leaving a level.
+fn remove_pen_release_timer(mut commands: Commands) {
+    commands.remove_resource::<PenReleaseTimer>();
 }
 
 /// Check if any non-frightened, non-respawning enemy occupies the same tile as the player.
 /// Frightened enemies are handled by combat::player_kills_enemy instead.
 #[allow(clippy::type_complexity)]
 fn enemy_player_collision(
-    player_query: Query<&GridPosition, (With<Player>, Without<crate::plugins::combat::ActiveWeapon>)>,
+    player_query: Query<&GridPosition, With<Player>>,
     enemy_query: Query<&GridPosition, (With<Enemy>, Without<InPen>, Without<Frightened>, Without<Respawning>)>,
     mut next_state: ResMut<NextState<PlayingState>>,
     mut lives: ResMut<Lives>,
@@ -209,12 +218,12 @@ fn enemy_player_collision(
     }
 }
 
-/// On player death: reset positions. If no lives left, game over.
+/// On player death: reset positions, clean up movement state. If no lives left, game over.
 #[allow(clippy::type_complexity)]
 fn handle_player_death(
-    mut player_query: Query<&mut GridPosition, (With<Player>, With<SpawnPosition>, Without<Enemy>)>,
-    player_spawn_query: Query<&SpawnPosition, (With<Player>, Without<Enemy>)>,
-    mut enemy_query: Query<(&mut GridPosition, &SpawnPosition), (With<Enemy>, Without<Player>)>,
+    mut commands: Commands,
+    mut player_query: Query<(Entity, &mut GridPosition, &SpawnPosition), (With<Player>, Without<Enemy>)>,
+    mut enemy_query: Query<(Entity, &mut GridPosition, &SpawnPosition), (With<Enemy>, Without<Player>)>,
     lives: Res<Lives>,
     mut next_playing: ResMut<NextState<PlayingState>>,
     mut next_app: ResMut<NextState<AppState>>,
@@ -224,16 +233,22 @@ fn handle_player_death(
         return;
     }
 
-    // Reset player position
-    if let (Ok(mut player_pos), Ok(spawn)) =
-        (player_query.single_mut(), player_spawn_query.single())
-    {
+    // Reset player position and clean up movement components
+    if let Ok((entity, mut player_pos, spawn)) = player_query.single_mut() {
         *player_pos = spawn.0;
+        commands
+            .entity(entity)
+            .remove::<MoveLerp>()
+            .remove::<MoveDirection>();
     }
 
-    // Reset enemy positions
-    for (mut enemy_pos, spawn) in &mut enemy_query {
+    // Reset enemy positions and clean up movement components
+    for (entity, mut enemy_pos, spawn) in &mut enemy_query {
         *enemy_pos = spawn.0;
+        commands
+            .entity(entity)
+            .remove::<MoveLerp>()
+            .remove::<MoveDirection>();
     }
 
     next_playing.set(PlayingState::Playing);
