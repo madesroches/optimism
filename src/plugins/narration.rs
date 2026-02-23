@@ -97,11 +97,8 @@ pub fn pick_quote<'a>(pool: &'a [&'a str], state: &mut NarrationState) -> &'a st
         return pool.first().copied().unwrap_or("");
     }
 
-    // Simple deterministic pick avoiding consecutive duplicates
-    let mut idx = state.last_quote.map(|i| (i + 1) % pool.len()).unwrap_or(0);
-    if Some(idx) == state.last_quote {
-        idx = (idx + 1) % pool.len();
-    }
+    // Simple deterministic pick: cycle sequentially, guarantees no consecutive duplicates
+    let idx = state.last_quote.map(|i| (i + 1) % pool.len()).unwrap_or(0);
     state.last_quote = Some(idx);
     pool[idx]
 }

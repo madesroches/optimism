@@ -59,8 +59,7 @@ fn spawn_luxury_items(
     maze: Res<MazeMap>,
     config: Res<LevelConfig>,
 ) {
-    // Skip if garden (no luxury spawns anyway, but also no enemies → no luxury type)
-    if config.enemy_speed_multiplier == 0.0 {
+    if config.is_garden {
         return;
     }
 
@@ -235,32 +234,37 @@ mod tests {
     #[test]
     fn luxury_timeout_despawns() {
         use crate::components::LuxuryType;
+        use std::time::Duration;
 
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
-        // Register without state-gating for direct testing
         app.add_systems(Update, luxury_timeout);
 
-        // Let app warm up
+        // Warm up so Time has a non-zero delta on subsequent updates
         app.update();
 
-        // Spawn a luxury item with a very short timeout
+        // Create a timer pre-ticked to just under its duration. Any positive
+        // frame delta from the Time resource will push it past the threshold
+        // and trigger just_finished().
+        let mut timer = Timer::from_seconds(0.001, TimerMode::Once);
+        timer.tick(Duration::from_nanos(999_000));
         let luxury = app
             .world_mut()
             .spawn((
                 LuxuryItem(LuxuryType::GoldGrill),
-                LuxuryTimeout(Timer::from_seconds(0.001, TimerMode::Once)),
+                LuxuryTimeout(timer),
                 GridPosition { x: 1, y: 1 },
             ))
             .id();
 
-        // Run enough updates for time to advance past the tiny timeout
-        std::thread::sleep(std::time::Duration::from_millis(10));
-        app.update();
+        // Run several updates to guarantee at least one has a non-zero delta
+        for _ in 0..10 {
+            app.update();
+            if app.world().get_entity(luxury).is_err() {
+                return; // Despawned as expected
+            }
+        }
 
-        assert!(
-            app.world().get_entity(luxury).is_err(),
-            "Luxury item should be despawned after timeout"
-        );
+        panic!("Luxury item should be despawned after timeout");
     }
 }

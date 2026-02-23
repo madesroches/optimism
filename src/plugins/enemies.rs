@@ -58,8 +58,7 @@ pub fn spawn_enemies(
     asset_server: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    // Skip spawning if speed multiplier is 0 (garden level)
-    if config.enemy_speed_multiplier == 0.0 {
+    if config.is_garden {
         return;
     }
 

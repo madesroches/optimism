@@ -28,6 +28,7 @@ pub struct LevelConfig {
     pub enemy_speed_multiplier: f32,
     pub weapon_duration_secs: f32,
     pub pen_release_interval_secs: f32,
+    pub is_garden: bool,
 }
 
 /// Build the level configuration for a given level number.
@@ -41,6 +42,7 @@ pub fn level_config(level: u32) -> LevelConfig {
             enemy_speed_multiplier: 0.0,
             weapon_duration_secs: 8.0,
             pen_release_interval_secs: 3.0,
+            is_garden: true,
         };
     }
 
@@ -74,6 +76,7 @@ pub fn level_config(level: u32) -> LevelConfig {
         enemy_speed_multiplier,
         weapon_duration_secs,
         pen_release_interval_secs,
+        is_garden: false,
     }
 }
 
