@@ -223,7 +223,7 @@ fn enemy_player_collision(
 #[allow(clippy::type_complexity)]
 fn handle_player_death(
     mut commands: Commands,
-    mut player_query: Query<(Entity, &mut GridPosition, &SpawnPosition), (With<Player>, Without<Enemy>)>,
+    mut player_query: Query<(Entity, &mut GridPosition, &SpawnPosition, &mut InputDirection), (With<Player>, Without<Enemy>)>,
     mut enemy_query: Query<(Entity, &mut GridPosition, &SpawnPosition), (With<Enemy>, Without<Player>)>,
     maze: Res<MazeMap>,
     lives: Res<Lives>,
@@ -237,8 +237,9 @@ fn handle_player_death(
     }
 
     // Reset player position and clean up movement/weapon components
-    if let Ok((entity, mut player_pos, spawn)) = player_query.single_mut() {
+    if let Ok((entity, mut player_pos, spawn, mut input)) = player_query.single_mut() {
         *player_pos = spawn.0;
+        input.0 = None;
         let world = grid_to_world(spawn.0, maze.width, maze.height);
         commands
             .entity(entity)
@@ -337,7 +338,7 @@ mod tests {
     fn enemy_collision_triggers_death() {
         let mut app = setup_app();
         let pos = GridPosition { x: 1, y: 1 };
-        app.world_mut().spawn((Player, pos, SpawnPosition(pos)));
+        app.world_mut().spawn((Player, pos, SpawnPosition(pos), InputDirection::default()));
         app.world_mut().spawn((
             Enemy,
             EnemyKind::Soldier,
@@ -357,7 +358,7 @@ mod tests {
         app.insert_resource(Lives(1));
 
         let pos = GridPosition { x: 1, y: 1 };
-        app.world_mut().spawn((Player, pos, SpawnPosition(pos)));
+        app.world_mut().spawn((Player, pos, SpawnPosition(pos), InputDirection::default()));
         app.world_mut().spawn((
             Enemy,
             EnemyKind::Soldier,
@@ -381,7 +382,7 @@ mod tests {
     fn in_pen_enemies_dont_collide() {
         let mut app = setup_app();
         let pos = GridPosition { x: 1, y: 1 };
-        app.world_mut().spawn((Player, pos, SpawnPosition(pos)));
+        app.world_mut().spawn((Player, pos, SpawnPosition(pos), InputDirection::default()));
         app.world_mut().spawn((
             Enemy,
             EnemyKind::Soldier,

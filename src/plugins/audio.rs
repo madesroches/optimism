@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy_kira_audio::prelude::*;
 
 use crate::app_state::{AppState, PlayingState};
-use crate::events::{EnemyKilled, MoneyCollected, WeaponPickedUp};
+use crate::events::{EnemyKilled, LuxuryCollected, MoneyCollected, WeaponPickedUp};
 use crate::resources::AudioAssets;
 
 #[derive(Resource)]
@@ -30,6 +30,7 @@ impl Plugin for GameAudioPlugin {
         app.add_observer(on_money_collected);
         app.add_observer(on_weapon_picked_up);
         app.add_observer(on_enemy_killed);
+        app.add_observer(on_luxury_collected);
 
         // SFX via state hooks
         app.add_systems(OnEnter(PlayingState::PlayerDeath), play_death_sfx);
@@ -83,6 +84,14 @@ fn on_enemy_killed(
     assets: Res<AudioAssets>,
 ) {
     sfx.play(assets.ghost_eaten.clone());
+}
+
+fn on_luxury_collected(
+    _trigger: On<LuxuryCollected>,
+    sfx: Res<AudioChannel<SfxChannel>>,
+    assets: Res<AudioAssets>,
+) {
+    sfx.play(assets.power_pellet.clone());
 }
 
 // ---------------------------------------------------------------------------

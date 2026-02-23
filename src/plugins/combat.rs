@@ -7,7 +7,7 @@ use crate::app_state::PlayingState;
 use crate::components::*;
 use crate::events::{EnemyKilled, WeaponPickedUp};
 use crate::plugins::maze::{grid_to_world, load_maze, MazeMap, MazeEntity, TILE_SIZE};
-use crate::resources::{GameStats, LevelConfig};
+use crate::resources::{GameStats, LevelConfig, Score};
 
 pub struct CombatPlugin;
 
@@ -151,6 +151,7 @@ fn player_kills_enemy(
         (Entity, &GridPosition),
         (With<Enemy>, With<Frightened>, Without<Respawning>),
     >,
+    mut score: ResMut<Score>,
     mut stats: ResMut<GameStats>,
 ) {
     let Ok((player_pos, active_weapon)) = player_query.single() else {
@@ -167,8 +168,9 @@ fn player_kills_enemy(
                 .remove::<MoveDirection>()
                 .remove::<MoveLerp>();
             *stats.kills_by_weapon.entry(active_weapon.0).or_insert(0) += 1;
+            score.0 += 200;
             let total_kills: u32 = stats.kills_by_weapon.values().sum();
-            info!("enemy_killed: weapon={:?}", active_weapon.0);
+            info!("enemy_killed: weapon={:?} score={}", active_weapon.0, score.0);
             imetric!("kills", "count", total_kills as u64);
             commands.trigger(EnemyKilled);
         }
@@ -243,6 +245,7 @@ mod tests {
         app.add_plugins(StatesPlugin);
         app.init_state::<crate::app_state::AppState>();
         app.add_sub_state::<PlayingState>();
+        app.insert_resource(Score(0));
         app.init_resource::<GameStats>();
         app.add_systems(
             Update,
