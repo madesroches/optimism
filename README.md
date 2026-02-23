@@ -60,6 +60,7 @@ python3 tools/generate_audio.py
 
 - [Game Design](docs/concept/OPTIMISM.md)
 - [Architecture](docs/architecture/ARCHITECTURE.md)
+- [Level Design Guidelines](docs/level_design_guidelines.md)
 
 ## License
 
