@@ -6,7 +6,7 @@ use micromegas::tracing::prelude::span_scope;
 use crate::ai;
 use crate::app_state::{AppState, PlayingState};
 use crate::components::*;
-use crate::plugins::combat::{Frightened, Respawning};
+use crate::plugins::combat::{ActiveWeapon, Frightened, Respawning, WeaponTimer};
 use crate::plugins::maze::{grid_to_world, load_maze, MazeMap, MazeEntity, TILE_SIZE};
 use crate::plugins::sprites::{
     AnimationState, AnimationTimer, CharacterSheetRef, FacingDirection, SpriteSheetLibrary,
@@ -218,13 +218,16 @@ fn enemy_player_collision(
     }
 }
 
-/// On player death: reset positions, clean up movement state. If no lives left, game over.
+/// On player death: reset positions, clean up movement and combat state.
+/// If no lives left, game over.
 #[allow(clippy::type_complexity)]
 fn handle_player_death(
     mut commands: Commands,
     mut player_query: Query<(Entity, &mut GridPosition, &SpawnPosition), (With<Player>, Without<Enemy>)>,
     mut enemy_query: Query<(Entity, &mut GridPosition, &SpawnPosition), (With<Enemy>, Without<Player>)>,
+    maze: Res<MazeMap>,
     lives: Res<Lives>,
+    config: Res<LevelConfig>,
     mut next_playing: ResMut<NextState<PlayingState>>,
     mut next_app: ResMut<NextState<AppState>>,
 ) {
@@ -233,23 +236,38 @@ fn handle_player_death(
         return;
     }
 
-    // Reset player position and clean up movement components
+    // Reset player position and clean up movement/weapon components
     if let Ok((entity, mut player_pos, spawn)) = player_query.single_mut() {
         *player_pos = spawn.0;
+        let world = grid_to_world(spawn.0, maze.width, maze.height);
         commands
             .entity(entity)
             .remove::<MoveLerp>()
-            .remove::<MoveDirection>();
+            .remove::<MoveDirection>()
+            .remove::<ActiveWeapon>()
+            .remove::<WeaponTimer>()
+            .insert(Transform::from_xyz(world.x, world.y, 10.0));
     }
 
-    // Reset enemy positions and clean up movement components
+    // Reset enemy positions, return to pen, clear combat state
     for (entity, mut enemy_pos, spawn) in &mut enemy_query {
         *enemy_pos = spawn.0;
+        let world = grid_to_world(spawn.0, maze.width, maze.height);
         commands
             .entity(entity)
             .remove::<MoveLerp>()
-            .remove::<MoveDirection>();
+            .remove::<MoveDirection>()
+            .remove::<Frightened>()
+            .remove::<Respawning>()
+            .insert(InPen)
+            .insert(Visibility::Inherited)
+            .insert(Transform::from_xyz(world.x, world.y, 10.0));
     }
+
+    // Reset pen release timer so enemies are released gradually
+    commands.insert_resource(PenReleaseTimer {
+        timer: Timer::from_seconds(config.pen_release_interval_secs, TimerMode::Repeating),
+    });
 
     next_playing.set(PlayingState::Playing);
 }
@@ -275,6 +293,7 @@ fn pen_release(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::resources::level_config;
     use bevy::state::app::StatesPlugin;
 
     fn setup_app() -> App {
@@ -288,6 +307,10 @@ mod tests {
         app.insert_resource(PenReleaseTimer {
             timer: Timer::from_seconds(0.1, TimerMode::Repeating),
         });
+        // MazeMap and LevelConfig required by handle_player_death
+        let maze = MazeMap::parse("####\n#P #\n# G#\n####").unwrap();
+        app.insert_resource(maze);
+        app.insert_resource(level_config(1));
         app.add_systems(
             Update,
             (enemy_player_collision, pen_release).run_if(in_state(PlayingState::Playing)),

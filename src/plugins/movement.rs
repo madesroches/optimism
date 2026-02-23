@@ -37,11 +37,10 @@ fn movement_validation(
         &MoveSpeed,
         Option<&MoveLerp>,
         Has<Player>,
-        Has<InPen>,  // reserved for Phase 4 pen logic
     )>,
     mut commands: Commands,
 ) {
-    for (entity, mut pos, dir, _speed, lerp, is_player, _in_pen) in &mut query {
+    for (entity, mut pos, dir, _speed, lerp, is_player) in &mut query {
         // Don't start a new move while one is in progress
         if lerp.is_some() {
             continue;
@@ -53,9 +52,8 @@ fn movement_validation(
             y: pos.y + dy,
         };
 
-        // Player cannot walk through pen gates; enemies can (unless InPen enemies
-        // are handled by pen release logic — InPen enemies shouldn't move at all,
-        // but that's enforced by not giving them a MoveDirection).
+        // Player cannot walk through pen gates; enemies can. InPen enemies don't
+        // reach here because enemy_ai excludes them from receiving MoveDirection.
         let walkable = if is_player {
             maze.is_walkable_for_player(target)
         } else {
