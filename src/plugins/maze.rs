@@ -4,7 +4,7 @@
 //! for pathfinding. Walls and floors are rendered as colored rectangles.
 
 use bevy::prelude::*;
-use micromegas::tracing::prelude::{info, span_scope};
+use micromegas_tracing::prelude::{info, span_scope};
 
 use crate::app_state::{AppState, PlayingState};
 use crate::components::{GridPosition, Money, Wall};

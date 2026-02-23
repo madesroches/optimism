@@ -1,7 +1,7 @@
 //! Weapons and combat: weapon pickups, frightened mode, enemy kills, respawning.
 
 use bevy::prelude::*;
-use micromegas::tracing::prelude::{imetric, info};
+use micromegas_tracing::prelude::{imetric, info};
 
 use crate::app_state::PlayingState;
 use crate::components::*;

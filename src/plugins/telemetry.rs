@@ -1,7 +1,7 @@
 //! Frame-level telemetry: wraps the game loop with Micromegas instrumentation.
 
 use bevy::prelude::*;
-use micromegas::tracing::prelude::{fmetric, span_scope};
+use micromegas_tracing::prelude::{fmetric, span_scope};
 
 pub struct TelemetryPlugin;
 

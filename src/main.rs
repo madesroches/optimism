@@ -1,9 +1,9 @@
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy::tasks::{ComputeTaskPool, TaskPoolBuilder};
-use micromegas::telemetry_sink::TelemetryGuardBuilder;
-use micromegas::tracing::dispatch::init_thread_stream;
-use micromegas::tracing::prelude::info;
+use micromegas_telemetry_sink::TelemetryGuardBuilder;
+use micromegas_tracing::dispatch::init_thread_stream;
+use micromegas_tracing::prelude::info;
 
 fn main() {
     // 1. Initialize telemetry (creates LocalEventSink for stdout)
@@ -25,8 +25,8 @@ fn main() {
                 init_thread_stream();
             })
             .on_thread_destroy(|| {
-                micromegas::tracing::dispatch::flush_thread_buffer();
-                micromegas::tracing::dispatch::unregister_thread_stream();
+                micromegas_tracing::dispatch::flush_thread_buffer();
+                micromegas_tracing::dispatch::unregister_thread_stream();
             })
             .build()
     });

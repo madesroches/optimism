@@ -27,7 +27,8 @@ bevy = { version = "0.18", default-features = false, features = [
     "picking",
     "default_font",
 ] }
-micromegas = "0.20"
+micromegas-tracing = "0.20"
+micromegas-telemetry-sink = "0.20"
 bevy_kira_audio = "0.25"
 bevy_asset_loader = "0.25"
 avian2d = "0.5"

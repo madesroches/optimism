@@ -1,7 +1,7 @@
 //! Collectible systems: money dots, luxury items, and level completion.
 
 use bevy::prelude::*;
-use micromegas::tracing::prelude::{imetric, info};
+use micromegas_tracing::prelude::{imetric, info};
 
 use crate::app_state::PlayingState;
 use crate::components::{GridPosition, LuxuryItem, LuxuryTimeout, Money, Player};
