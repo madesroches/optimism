@@ -8,6 +8,7 @@ pub mod resources;
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use bevy_kira_audio::AudioPlugin;
+use micromegas_tracing::prelude::*;
 
 use app_state::{AppState, PlayingState};
 use plugins::audio::GameAudioPlugin;
@@ -72,6 +73,7 @@ impl Plugin for OptimismPlugin {
 /// Runs on each `OnEnter(AppState::InGame)`, so a new game always starts clean.
 /// These resources persist through `GameOver` for stats display and are
 /// cleaned up on `OnExit(GameOver)`.
+#[span_fn]
 fn init_game_session(mut commands: Commands) {
     commands.insert_resource(Score(0));
     commands.insert_resource(CurrentLevel(1));
@@ -81,6 +83,7 @@ fn init_game_session(mut commands: Commands) {
 }
 
 /// Remove per-game-session resources when leaving GameOver.
+#[span_fn]
 fn cleanup_game_session(mut commands: Commands) {
     commands.remove_resource::<Score>();
     commands.remove_resource::<CurrentLevel>();

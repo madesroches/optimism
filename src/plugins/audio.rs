@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::*;
+use micromegas_tracing::prelude::*;
 
 use crate::app_state::{AppState, PlayingState};
 use crate::events::{EnemyKilled, LuxuryCollected, MoneyCollected, WeaponPickedUp};
@@ -42,18 +43,22 @@ impl Plugin for GameAudioPlugin {
 // Music
 // ---------------------------------------------------------------------------
 
+#[span_fn]
 fn start_menu_music(music: Res<AudioChannel<MusicChannel>>, assets: Res<AudioAssets>) {
     music.play(assets.menu_theme.clone()).looped();
 }
 
+#[span_fn]
 fn stop_menu_music(music: Res<AudioChannel<MusicChannel>>) {
     music.stop();
 }
 
+#[span_fn]
 fn start_gameplay_music(music: Res<AudioChannel<MusicChannel>>, assets: Res<AudioAssets>) {
     music.play(assets.gameplay.clone()).looped();
 }
 
+#[span_fn]
 fn stop_gameplay_music(music: Res<AudioChannel<MusicChannel>>) {
     music.stop();
 }
@@ -62,6 +67,7 @@ fn stop_gameplay_music(music: Res<AudioChannel<MusicChannel>>) {
 // SFX observers
 // ---------------------------------------------------------------------------
 
+#[span_fn]
 fn on_money_collected(
     _trigger: On<MoneyCollected>,
     sfx: Res<AudioChannel<SfxChannel>>,
@@ -70,6 +76,7 @@ fn on_money_collected(
     sfx.play(assets.dot_pickup.clone());
 }
 
+#[span_fn]
 fn on_weapon_picked_up(
     _trigger: On<WeaponPickedUp>,
     sfx: Res<AudioChannel<SfxChannel>>,
@@ -78,6 +85,7 @@ fn on_weapon_picked_up(
     sfx.play(assets.power_pellet.clone());
 }
 
+#[span_fn]
 fn on_enemy_killed(
     _trigger: On<EnemyKilled>,
     sfx: Res<AudioChannel<SfxChannel>>,
@@ -86,6 +94,7 @@ fn on_enemy_killed(
     sfx.play(assets.ghost_eaten.clone());
 }
 
+#[span_fn]
 fn on_luxury_collected(
     _trigger: On<LuxuryCollected>,
     sfx: Res<AudioChannel<SfxChannel>>,
@@ -98,10 +107,12 @@ fn on_luxury_collected(
 // SFX state hooks
 // ---------------------------------------------------------------------------
 
+#[span_fn]
 fn play_death_sfx(sfx: Res<AudioChannel<SfxChannel>>, assets: Res<AudioAssets>) {
     sfx.play(assets.death.clone());
 }
 
+#[span_fn]
 fn play_level_complete_sfx(sfx: Res<AudioChannel<SfxChannel>>, assets: Res<AudioAssets>) {
     sfx.play(assets.level_complete.clone());
 }

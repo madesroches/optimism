@@ -1,8 +1,11 @@
 //! Soldier AI: A* directly toward the player. The fastest and most aggressive enemy.
 
+use micromegas_tracing::prelude::*;
+
 use crate::components::{Direction, GridPosition};
 use crate::plugins::maze::MazeMap;
 
+#[span_fn]
 pub fn choose_direction(
     enemy_pos: GridPosition,
     player_pos: GridPosition,

@@ -1,6 +1,7 @@
 //! HUD overlay: score, lives, and level display.
 
 use bevy::prelude::*;
+use micromegas_tracing::prelude::*;
 
 use crate::app_state::AppState;
 use crate::resources::{CurrentLevel, Lives, Score};
@@ -38,6 +39,7 @@ pub struct LevelText;
 // Systems
 // ---------------------------------------------------------------------------
 
+#[span_fn]
 fn spawn_hud(mut commands: Commands) {
     commands
         .spawn((
@@ -84,6 +86,7 @@ fn spawn_hud(mut commands: Commands) {
         });
 }
 
+#[span_fn]
 fn despawn_hud(mut commands: Commands, query: Query<Entity, With<HudRoot>>) {
     for entity in &query {
         commands.entity(entity).despawn();
@@ -91,6 +94,7 @@ fn despawn_hud(mut commands: Commands, query: Query<Entity, With<HudRoot>>) {
 }
 
 #[allow(clippy::type_complexity)]
+#[span_fn]
 fn update_hud(
     score: Res<Score>,
     lives: Res<Lives>,

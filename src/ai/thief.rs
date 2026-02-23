@@ -1,11 +1,14 @@
 //! Thief AI: semi-random movement with bias toward the player at close range.
 
+use micromegas_tracing::prelude::*;
+
 use crate::components::{Direction, GridPosition};
 use crate::plugins::maze::MazeMap;
 use rand::Rng;
 
 const CHASE_THRESHOLD: u32 = 8;
 
+#[span_fn]
 pub fn choose_direction(
     enemy_pos: GridPosition,
     player_pos: GridPosition,

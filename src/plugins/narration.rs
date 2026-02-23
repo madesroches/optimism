@@ -1,6 +1,7 @@
 //! Narration: Candide-themed quotes triggered by gameplay events.
 
 use bevy::prelude::*;
+use micromegas_tracing::prelude::*;
 
 use crate::app_state::{AppState, PlayingState};
 use crate::events::{EnemyKilled, MoneyCollected, WeaponPickedUp};
@@ -141,6 +142,7 @@ fn is_garden_level(level: &CurrentLevel) -> bool {
 // Observer-driven triggers
 // ---------------------------------------------------------------------------
 
+#[span_fn]
 fn on_money_collected(
     _trigger: On<MoneyCollected>,
     mut commands: Commands,
@@ -160,6 +162,7 @@ fn on_money_collected(
     show_narration(&mut commands, quote);
 }
 
+#[span_fn]
 fn on_weapon_picked_up(
     _trigger: On<WeaponPickedUp>,
     mut commands: Commands,
@@ -175,6 +178,7 @@ fn on_weapon_picked_up(
     show_narration(&mut commands, quote);
 }
 
+#[span_fn]
 fn on_enemy_killed(
     _trigger: On<EnemyKilled>,
     mut commands: Commands,
@@ -194,6 +198,7 @@ fn on_enemy_killed(
 // State-driven triggers
 // ---------------------------------------------------------------------------
 
+#[span_fn]
 fn on_level_start(
     mut commands: Commands,
     mut state: ResMut<NarrationState>,
@@ -208,6 +213,7 @@ fn on_level_start(
     show_narration(&mut commands, quote);
 }
 
+#[span_fn]
 fn on_player_death(
     mut commands: Commands,
     mut state: ResMut<NarrationState>,
@@ -226,6 +232,7 @@ fn on_player_death(
 // Fade system
 // ---------------------------------------------------------------------------
 
+#[span_fn]
 fn fade_narration(
     mut commands: Commands,
     time: Res<Time>,

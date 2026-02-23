@@ -1,7 +1,7 @@
 //! Collectible systems: money dots, luxury items, and level completion.
 
 use bevy::prelude::*;
-use micromegas_tracing::prelude::{imetric, info};
+use micromegas_tracing::prelude::*;
 
 use crate::app_state::PlayingState;
 use crate::components::{GridPosition, LuxuryItem, LuxuryTimeout, Money, Player};
@@ -31,6 +31,7 @@ impl Plugin for CollectiblePlugin {
 }
 
 /// Despawn money dots when player walks over them.
+#[span_fn]
 fn money_collection(
     mut commands: Commands,
     mut score: ResMut<Score>,
@@ -46,7 +47,7 @@ fn money_collection(
             commands.entity(entity).despawn();
             score.0 += 10;
             stats.money_collected += 10;
-            info!("money_collected: score={}", score.0);
+            micromegas_tracing::prelude::info!("money_collected: score={}", score.0);
             imetric!("score", "points", score.0);
             commands.trigger(MoneyCollected);
         }
@@ -54,6 +55,7 @@ fn money_collection(
 }
 
 /// Spawn luxury items at L positions from the maze.
+#[span_fn]
 fn spawn_luxury_items(
     mut commands: Commands,
     maze: Res<MazeMap>,
@@ -79,6 +81,7 @@ fn spawn_luxury_items(
 }
 
 /// Player collects luxury items on contact.
+#[span_fn]
 fn luxury_collection(
     mut commands: Commands,
     mut score: ResMut<Score>,
@@ -100,6 +103,7 @@ fn luxury_collection(
 }
 
 /// Tick luxury timeouts and despawn expired items.
+#[span_fn]
 fn luxury_timeout(
     mut commands: Commands,
     time: Res<Time>,
@@ -116,6 +120,7 @@ fn luxury_timeout(
 /// When all money is collected, transition to LevelComplete.
 /// Only checks after at least one dot has been collected (score > 0)
 /// to avoid false triggers before the maze is loaded.
+#[span_fn]
 fn check_level_complete(
     money_query: Query<(), With<Money>>,
     score: Res<Score>,

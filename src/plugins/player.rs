@@ -1,6 +1,7 @@
 //! Player spawning and input handling.
 
 use bevy::prelude::*;
+use micromegas_tracing::prelude::*;
 
 use crate::app_state::PlayingState;
 use crate::components::*;
@@ -27,6 +28,7 @@ impl Plugin for PlayerPlugin {
 }
 
 /// Spawn the player entity at the maze's player spawn position.
+#[span_fn]
 pub fn spawn_player(
     mut commands: Commands,
     maze: Res<MazeMap>,
@@ -88,6 +90,7 @@ pub fn spawn_player(
 }
 
 /// Read keyboard input and buffer the direction.
+#[span_fn]
 fn player_input(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut InputDirection, With<Player>>,
@@ -108,6 +111,7 @@ fn player_input(
 /// When the player arrives at a tile (no active lerp, no MoveDirection),
 /// apply the buffered input direction.
 #[allow(clippy::type_complexity)]
+#[span_fn]
 fn apply_player_direction(
     mut commands: Commands,
     mut query: Query<
@@ -124,6 +128,7 @@ fn apply_player_direction(
 }
 
 /// Bridge between FacingDirection changes and the sprite animation system.
+#[span_fn]
 fn sync_facing_to_animation(
     library: Res<SpriteSheetLibrary>,
     mut query: Query<

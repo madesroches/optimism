@@ -4,7 +4,7 @@
 //! for pathfinding. Walls and floors are rendered as colored rectangles.
 
 use bevy::prelude::*;
-use micromegas_tracing::prelude::{info, span_scope};
+use micromegas_tracing::prelude::*;
 
 use crate::app_state::{AppState, PlayingState};
 use crate::components::{GridPosition, Money, Wall};
@@ -293,13 +293,14 @@ const INTRO_QUOTES: &[&str] = &[
 ];
 
 /// Insert LevelConfig resource for the current level.
+#[span_fn]
 fn update_level_config(mut commands: Commands, level: Res<CurrentLevel>) {
     commands.insert_resource(level_config(level.0));
 }
 
 /// Load and spawn the maze for the current level.
+#[span_fn]
 pub fn load_maze(mut commands: Commands, config: Res<LevelConfig>) {
-    span_scope!("maze_load");
     let path = &config.maze_file;
     let text = std::fs::read_to_string(path)
         .unwrap_or_else(|e| panic!("Failed to read maze file {}: {}", path, e));
@@ -366,11 +367,12 @@ pub fn load_maze(mut commands: Commands, config: Res<LevelConfig>) {
         }
     }
 
-    info!("maze loaded: {} ({}x{})", path, maze.width, maze.height);
+    micromegas_tracing::prelude::info!("maze loaded: {} ({}x{})", path, maze.width, maze.height);
     commands.insert_resource(maze);
 }
 
 /// Show level intro UI with level number and a Pangloss quote.
+#[span_fn]
 fn show_level_intro(mut commands: Commands, level: Res<CurrentLevel>) {
     let quote_idx = (level.0 as usize).wrapping_sub(1) % INTRO_QUOTES.len();
     let quote = INTRO_QUOTES[quote_idx];
@@ -419,6 +421,7 @@ fn show_level_intro(mut commands: Commands, level: Res<CurrentLevel>) {
 }
 
 /// Tick intro timer or respond to Enter press → transition to Playing.
+#[span_fn]
 fn level_intro_input(
     keyboard: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
@@ -432,6 +435,7 @@ fn level_intro_input(
 }
 
 /// Clean up level intro UI.
+#[span_fn]
 fn despawn_level_intro_ui(
     mut commands: Commands,
     query: Query<Entity, With<LevelIntroUI>>,
@@ -443,11 +447,13 @@ fn despawn_level_intro_ui(
 }
 
 /// Start a 1.5s timer on LevelComplete.
+#[span_fn]
 fn start_level_complete_timer(mut commands: Commands) {
     commands.insert_resource(LevelCompleteTimer(Timer::from_seconds(1.5, TimerMode::Once)));
 }
 
 /// Tick level complete timer → transition to LevelTransition.
+#[span_fn]
 fn level_complete_delay(
     time: Res<Time>,
     mut timer: ResMut<LevelCompleteTimer>,
@@ -460,6 +466,7 @@ fn level_complete_delay(
 }
 
 /// Despawn all maze entities during level transition.
+#[span_fn]
 fn despawn_maze_entities(
     mut commands: Commands,
     query: Query<Entity, With<MazeEntity>>,
@@ -473,6 +480,7 @@ fn despawn_maze_entities(
 }
 
 /// Clean up maze entities when exiting InGame state (covers GameOver path).
+#[span_fn]
 fn cleanup_on_exit_game(
     mut commands: Commands,
     query: Query<Entity, With<MazeEntity>>,
@@ -486,6 +494,7 @@ fn cleanup_on_exit_game(
 }
 
 /// Increment level and transition back to LevelIntro.
+#[span_fn]
 fn advance_level(
     mut level: ResMut<CurrentLevel>,
     mut next_state: ResMut<NextState<PlayingState>>,

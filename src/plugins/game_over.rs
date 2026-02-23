@@ -1,6 +1,7 @@
 //! Game Over screen: display stats and return to main menu.
 
 use bevy::prelude::*;
+use micromegas_tracing::prelude::*;
 
 use crate::app_state::AppState;
 use crate::resources::{CurrentLevel, GameStats, Score};
@@ -29,6 +30,7 @@ pub struct GameOverRoot;
 // Systems
 // ---------------------------------------------------------------------------
 
+#[span_fn]
 fn spawn_game_over(
     mut commands: Commands,
     score: Res<Score>,
@@ -116,12 +118,14 @@ fn spawn_game_over(
         });
 }
 
+#[span_fn]
 fn despawn_game_over(mut commands: Commands, query: Query<Entity, With<GameOverRoot>>) {
     for entity in &query {
         commands.entity(entity).despawn();
     }
 }
 
+#[span_fn]
 fn game_over_input(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<AppState>>,

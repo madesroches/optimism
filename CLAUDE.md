@@ -43,7 +43,7 @@ Each character produces a PNG sprite sheet + JSON metadata sidecar in `assets/sp
 ## Architecture
 
 - **Bevy 0.18** ECS with plugin-based design. Each system is a `Plugin`.
-- **Micromegas** telemetry is a first-class concern: initialized before Bevy in `main.rs`, `ComputeTaskPool` pre-init with thread callbacks. Systems use `span_scope!`, `fmetric!`, `imetric!`.
+- **Micromegas** telemetry is a first-class concern: initialized before Bevy in `main.rs`, `ComputeTaskPool` pre-init with thread callbacks. Use `use micromegas_tracing::prelude::*;` and `#[span_fn]` on all system functions. Use `fmetric!`, `imetric!` for metrics. For the `info!` macro conflict with bevy, use `micromegas_tracing::prelude::info!("...")` at call sites.
 - **Grid-based movement** — discrete tile-to-tile, not continuous physics. Avian2d is a safety net, not the primary collision system.
 - **Sprite system** (`src/plugins/sprites.rs`): `SpriteSheetLibrary` loads PNG+JSON, builds `TextureAtlasLayout`, drives frame animation via `AnimationState`/`AnimationTimer`/`FacingDirection` components.
 

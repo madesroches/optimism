@@ -1,7 +1,7 @@
 //! Enemy spawning, AI dispatch, collision with player, death handling, and pen release.
 
 use bevy::prelude::*;
-use micromegas_tracing::prelude::span_scope;
+use micromegas_tracing::prelude::*;
 
 use crate::ai;
 use crate::app_state::{AppState, PlayingState};
@@ -50,6 +50,7 @@ pub struct PenReleaseTimer {
 }
 
 /// Spawn enemies at their maze positions.
+#[span_fn]
 pub fn spawn_enemies(
     mut commands: Commands,
     maze: Res<MazeMap>,
@@ -131,6 +132,7 @@ pub fn spawn_enemies(
 /// Run AI for each enemy: choose target direction based on enemy kind.
 /// Frightened enemies flee; respawning enemies don't move.
 #[allow(clippy::type_complexity)]
+#[span_fn]
 fn enemy_ai(
     maze: Res<MazeMap>,
     player_query: Query<(&GridPosition, &FacingDirection), With<Player>>,
@@ -140,7 +142,6 @@ fn enemy_ai(
     >,
     mut commands: Commands,
 ) {
-    span_scope!("enemy_ai");
 
     let Ok((player_pos, player_facing)) = player_query.single() else {
         return;
@@ -181,6 +182,7 @@ fn enemy_ai(
 }
 
 /// Insert a fresh pen release timer from LevelConfig at start of each level.
+#[span_fn]
 fn init_pen_release_timer(mut commands: Commands, config: Res<LevelConfig>) {
     commands.insert_resource(PenReleaseTimer {
         timer: Timer::from_seconds(config.pen_release_interval_secs, TimerMode::Repeating),
@@ -188,6 +190,7 @@ fn init_pen_release_timer(mut commands: Commands, config: Res<LevelConfig>) {
 }
 
 /// Remove the pen release timer when leaving a level.
+#[span_fn]
 fn remove_pen_release_timer(mut commands: Commands) {
     commands.remove_resource::<PenReleaseTimer>();
 }
@@ -196,6 +199,7 @@ fn remove_pen_release_timer(mut commands: Commands) {
 /// or if the player and enemy swapped tiles this frame (head-on pass-through).
 /// Frightened enemies are handled by combat::player_kills_enemy instead.
 #[allow(clippy::type_complexity)]
+#[span_fn]
 fn enemy_player_collision(
     player_query: Query<(&GridPosition, Option<&PreviousGridPosition>), With<Player>>,
     enemy_query: Query<(&GridPosition, Option<&PreviousGridPosition>), (With<Enemy>, Without<InPen>, Without<Frightened>, Without<Respawning>)>,
@@ -228,6 +232,7 @@ fn enemy_player_collision(
 /// On player death: reset positions, clean up movement and combat state.
 /// If no lives left, game over.
 #[allow(clippy::type_complexity)]
+#[span_fn]
 fn handle_player_death(
     mut commands: Commands,
     mut player_query: Query<(Entity, &mut GridPosition, &SpawnPosition, &mut InputDirection), (With<Player>, Without<Enemy>)>,
@@ -283,6 +288,7 @@ fn handle_player_death(
 }
 
 /// Release enemies from the pen one at a time.
+#[span_fn]
 fn pen_release(
     time: Res<Time>,
     mut timer: ResMut<PenReleaseTimer>,

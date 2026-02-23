@@ -1,6 +1,7 @@
 //! Main menu UI: title screen with start prompt.
 
 use bevy::prelude::*;
+use micromegas_tracing::prelude::*;
 
 use crate::app_state::AppState;
 
@@ -28,6 +29,7 @@ pub struct MenuRoot;
 // Systems
 // ---------------------------------------------------------------------------
 
+#[span_fn]
 fn spawn_menu(mut commands: Commands) {
     commands
         .spawn((
@@ -71,12 +73,14 @@ fn spawn_menu(mut commands: Commands) {
         });
 }
 
+#[span_fn]
 fn despawn_menu(mut commands: Commands, query: Query<Entity, With<MenuRoot>>) {
     for entity in &query {
         commands.entity(entity).despawn();
     }
 }
 
+#[span_fn]
 fn menu_input(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<AppState>>,

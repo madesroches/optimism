@@ -5,6 +5,7 @@
 //! and provides an animation system that ticks through frames.
 
 use bevy::prelude::*;
+use micromegas_tracing::prelude::*;
 use std::collections::HashMap;
 
 /// Plugin that registers sprite loading and animation systems.
@@ -159,6 +160,7 @@ impl FacingDirection {
 // ---------------------------------------------------------------------------
 
 /// Advances sprite animation frames based on timer and current state.
+#[span_fn]
 fn animate_sprites(
     time: Res<Time>,
     library: Res<SpriteSheetLibrary>,

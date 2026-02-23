@@ -1,9 +1,12 @@
 //! Brute AI: A* directly toward the player, same as Soldier but slower.
 //! Speed difference is handled by `MoveSpeed`, not the AI module.
 
+use micromegas_tracing::prelude::*;
+
 use crate::components::{Direction, GridPosition};
 use crate::plugins::maze::MazeMap;
 
+#[span_fn]
 pub fn choose_direction(
     enemy_pos: GridPosition,
     player_pos: GridPosition,

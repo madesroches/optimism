@@ -1,7 +1,7 @@
 //! Weapons and combat: weapon pickups, frightened mode, enemy kills, respawning.
 
 use bevy::prelude::*;
-use micromegas_tracing::prelude::{imetric, info};
+use micromegas_tracing::prelude::*;
 
 use crate::app_state::PlayingState;
 use crate::components::*;
@@ -69,6 +69,7 @@ pub struct Respawning(pub Timer);
 // ---------------------------------------------------------------------------
 
 /// Spawn weapon pickups at WeaponSpawn positions using LevelConfig.
+#[span_fn]
 fn spawn_weapons(mut commands: Commands, maze: Res<MazeMap>, config: Res<LevelConfig>) {
     let weapon_color = Color::srgb(0.9, 0.2, 0.2);
 
@@ -87,6 +88,7 @@ fn spawn_weapons(mut commands: Commands, maze: Res<MazeMap>, config: Res<LevelCo
 
 /// Player touches a weapon pickup → activate weapon and frighten enemies.
 #[allow(clippy::type_complexity)]
+#[span_fn]
 fn weapon_pickup(
     mut commands: Commands,
     player_query: Query<(Entity, &GridPosition), With<Player>>,
@@ -120,6 +122,7 @@ fn weapon_pickup(
 }
 
 /// Tick the weapon timer; remove weapon and frightened state on expiry.
+#[span_fn]
 fn weapon_timer(
     mut commands: Commands,
     time: Res<Time>,
@@ -144,6 +147,7 @@ fn weapon_timer(
 
 /// Armed player kills frightened enemies on contact or head-on crossing.
 #[allow(clippy::type_complexity)]
+#[span_fn]
 fn player_kills_enemy(
     mut commands: Commands,
     player_query: Query<(&GridPosition, &ActiveWeapon, Option<&PreviousGridPosition>), With<Player>>,
@@ -176,7 +180,7 @@ fn player_kills_enemy(
             *stats.kills_by_weapon.entry(active_weapon.0).or_insert(0) += 1;
             score.0 += 200;
             let total_kills: u32 = stats.kills_by_weapon.values().sum();
-            info!("enemy_killed: weapon={:?} score={}", active_weapon.0, score.0);
+            micromegas_tracing::prelude::info!("enemy_killed: weapon={:?} score={}", active_weapon.0, score.0);
             imetric!("kills", "count", total_kills as u64);
             commands.trigger(EnemyKilled);
         }
@@ -184,6 +188,7 @@ fn player_kills_enemy(
 }
 
 /// Tick respawn timers; when done, return enemy to pen.
+#[span_fn]
 fn enemy_respawn(
     mut commands: Commands,
     time: Res<Time>,
@@ -213,6 +218,7 @@ fn enemy_respawn(
 
 /// For frightened enemies, override AI to flee from player.
 /// This is called from the enemy_ai system in enemies.rs.
+#[span_fn]
 pub fn frightened_direction(
     enemy_pos: GridPosition,
     player_pos: GridPosition,

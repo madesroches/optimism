@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use micromegas_tracing::prelude::*;
 
 use super::maze::MazeMap;
 use super::maze::TILE_SIZE;
@@ -17,6 +18,7 @@ fn spawn_camera(mut commands: Commands) {
 }
 
 /// Scale the camera to fit the maze with some padding.
+#[span_fn]
 fn fit_camera_to_maze(
     maze: Option<Res<MazeMap>>,
     windows: Query<&Window>,

@@ -5,12 +5,15 @@ pub mod inquisitor;
 pub mod soldier;
 pub mod thief;
 
+use micromegas_tracing::prelude::*;
+
 use crate::components::{Direction, GridPosition};
 use crate::plugins::maze::MazeMap;
 
 /// Choose the next direction for an enemy to move, given its position,
 /// the player's position and direction, and the maze layout.
 /// Returns None if no valid move exists.
+#[span_fn]
 pub fn next_direction_toward(
     from: GridPosition,
     target: GridPosition,

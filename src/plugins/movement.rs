@@ -5,6 +5,7 @@
 //! via `MoveLerp` for smooth animation between tiles.
 
 use bevy::prelude::*;
+use micromegas_tracing::prelude::*;
 
 use crate::app_state::PlayingState;
 use crate::components::*;
@@ -28,6 +29,7 @@ impl Plugin for MovementPlugin {
 
 /// Check if a move is valid and start a lerp if so.
 #[allow(clippy::type_complexity)]
+#[span_fn]
 fn movement_validation(
     maze: Res<MazeMap>,
     mut query: Query<(
@@ -81,6 +83,7 @@ fn movement_validation(
 }
 
 /// Advance movement interpolation and snap when complete.
+#[span_fn]
 fn movement_interpolation(
     time: Res<Time>,
     mut query: Query<(Entity, &mut Transform, &mut MoveLerp, &MoveSpeed)>,
@@ -110,6 +113,7 @@ fn movement_interpolation(
 /// For entities with a GridPosition but no MoveLerp, keep Transform synced.
 /// This handles initial placement and teleports (e.g., death respawn).
 #[allow(clippy::type_complexity)]
+#[span_fn]
 fn sync_transform_to_grid(
     maze: Option<Res<MazeMap>>,
     mut query: Query<(&GridPosition, &mut Transform), (Changed<GridPosition>, Without<MoveLerp>)>,
