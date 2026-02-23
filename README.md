@@ -8,6 +8,8 @@ Weapons escalate from brass knuckles to chainsaw. Luxury items make you look rid
 
 *"The best of possible games. Or was it?"*
 
+![Optimism gameplay](docs/screenshot.png)
+
 ## Purpose
 
 This project serves as a tutorial demonstrating how to integrate [Micromegas](https://github.com/madesroches/micromegas) telemetry into a Rust game. Spans, metrics, and structured logging are woven into every system — not bolted on as an afterthought.
