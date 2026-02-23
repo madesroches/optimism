@@ -1,3 +1,4 @@
+use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy::tasks::{ComputeTaskPool, TaskPoolBuilder};
 use micromegas::telemetry_sink::TelemetryGuardBuilder;
@@ -30,9 +31,9 @@ fn main() {
             .build()
     });
 
-    // 3. Run Bevy app with MinimalPlugins (no window)
+    // 3. Run Bevy app
     App::new()
-        .add_plugins(MinimalPlugins)
+        .add_plugins(DefaultPlugins.build().disable::<LogPlugin>())
         .add_plugins(optimism::OptimismPlugin)
         .run();
 }

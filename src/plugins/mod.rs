@@ -1,1 +1,14 @@
+pub mod audio;
+pub mod camera;
+pub mod collectibles;
+pub mod combat;
+pub mod enemies;
+pub mod game_over;
+pub mod hud;
+pub mod maze;
+pub mod menu;
+pub mod movement;
+pub mod narration;
+pub mod player;
 pub mod sprites;
+pub mod telemetry;

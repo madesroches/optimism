@@ -242,9 +242,9 @@ pub fn set_animation(
     anim_state.looping = looping;
     anim_state.finished = false;
 
-    if let Some(range) = meta.animations.get(key) {
-        if let Some(atlas) = &mut sprite.texture_atlas {
-            atlas.index = range.start;
-        }
+    if let Some(range) = meta.animations.get(key)
+        && let Some(atlas) = &mut sprite.texture_atlas
+    {
+        atlas.index = range.start;
     }
 }
