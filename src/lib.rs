@@ -4,6 +4,7 @@ pub mod components;
 pub mod events;
 pub mod plugins;
 pub mod resources;
+pub mod tracing_bridge;
 
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;

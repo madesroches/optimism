@@ -1,5 +1,13 @@
 # Subsystem Span Tracing Plan
 
+**Status: SUPERSEDED** — The subsystem async spans described here are already
+implemented (commit 5dab9d0). Schedule-level visibility is now provided by the
+Bevy tracing bridge (`src/tracing_bridge.rs`) which automatically captures all
+Bevy schedule spans via `bevy/trace`, making the approach below unnecessary for
+schedule coverage. See `tasks/tracing_bridge_plan.md` for the current approach.
+
+---
+
 ## Overview
 
 Add subsystem-level async spans that group related Bevy systems under named categories (Player, AI, Movement, Combat, Collectibles, Presentation) without constraining parallelism. Individual systems keep their existing `#[span_fn]` sync spans. The Micromegas analysis tool correlates async and sync spans by time overlap, producing a trace hierarchy like:

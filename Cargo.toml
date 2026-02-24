@@ -26,7 +26,10 @@ bevy = { version = "0.18", default-features = false, features = [
     "scene",
     "picking",
     "default_font",
+    "trace",
 ] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["registry"] }
 micromegas-tracing = "0.20"
 micromegas-telemetry-sink = "0.20"
 bevy_kira_audio = "0.25"

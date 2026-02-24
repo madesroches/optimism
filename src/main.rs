@@ -4,6 +4,9 @@ use bevy::tasks::{ComputeTaskPool, TaskPoolBuilder};
 use micromegas_telemetry_sink::TelemetryGuardBuilder;
 use micromegas_tracing::dispatch::init_thread_stream;
 use micromegas_tracing::prelude::info;
+use optimism::tracing_bridge::MicromegasBridgeLayer;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::Registry;
 
 fn main() {
     // 1. Initialize telemetry (creates LocalEventSink for stdout)
@@ -11,12 +14,20 @@ fn main() {
     //    Without it, init_thread_stream() is a no-op and spans are silently dropped.
     //    Logs and metrics always work regardless.
     let _telemetry_guard = TelemetryGuardBuilder::default()
+        .with_install_tracing_capture(false)
         .build()
         .expect("failed to initialize telemetry");
 
     info!("Optimism PoC starting");
 
-    // 2. Pre-init ComputeTaskPool with Micromegas thread callbacks.
+    // 2. Install tracing subscriber that bridges Bevy's schedule spans into
+    //    Micromegas.  Must be set before Bevy starts (bevy/trace emits spans
+    //    via the `tracing` crate's global subscriber).
+    let subscriber = Registry::default().with(MicromegasBridgeLayer);
+    tracing::subscriber::set_global_default(subscriber)
+        .expect("failed to set tracing subscriber");
+
+    // 3. Pre-init ComputeTaskPool with Micromegas thread callbacks.
     //    Must happen BEFORE App::new() so TaskPoolPlugin finds the pool
     //    already initialized and skips its own init.
     ComputeTaskPool::get_or_init(|| {
@@ -31,7 +42,7 @@ fn main() {
             .build()
     });
 
-    // 3. Run Bevy app
+    // 4. Run Bevy app
     App::new()
         .add_plugins(DefaultPlugins.build().disable::<LogPlugin>())
         .add_plugins(optimism::OptimismPlugin)
