@@ -1,10 +1,12 @@
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy::tasks::{ComputeTaskPool, TaskPoolBuilder};
+use micromegas_telemetry_sink::tracing_interop::TracingCaptureLayer;
 use micromegas_telemetry_sink::TelemetryGuardBuilder;
 use micromegas_tracing::dispatch::init_thread_stream;
 use micromegas_tracing::prelude::info;
 use optimism::tracing_bridge::MicromegasBridgeLayer;
+use micromegas_tracing::levels::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::Registry;
 
@@ -23,7 +25,12 @@ fn main() {
     // 2. Install tracing subscriber that bridges Bevy's schedule spans into
     //    Micromegas.  Must be set before Bevy starts (bevy/trace emits spans
     //    via the `tracing` crate's global subscriber).
-    let subscriber = Registry::default().with(MicromegasBridgeLayer);
+    let log_layer = TracingCaptureLayer {
+        max_level: LevelFilter::Info,
+    };
+    let subscriber = Registry::default()
+        .with(MicromegasBridgeLayer)
+        .with(log_layer);
     tracing::subscriber::set_global_default(subscriber)
         .expect("failed to set tracing subscriber");
 
