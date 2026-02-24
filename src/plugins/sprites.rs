@@ -8,13 +8,15 @@ use bevy::prelude::*;
 use micromegas_tracing::prelude::*;
 use std::collections::HashMap;
 
+use crate::plugins::telemetry::GameSet;
+
 /// Plugin that registers sprite loading and animation systems.
 pub struct SpriteSheetPlugin;
 
 impl Plugin for SpriteSheetPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SpriteSheetLibrary>()
-            .add_systems(Update, animate_sprites);
+            .add_systems(Update, animate_sprites.in_set(GameSet::Presentation));
     }
 }
 

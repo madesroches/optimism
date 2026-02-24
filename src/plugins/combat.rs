@@ -7,6 +7,7 @@ use crate::app_state::PlayingState;
 use crate::components::*;
 use crate::events::{EnemyKilled, WeaponPickedUp};
 use crate::plugins::maze::{grid_to_world, load_maze, MazeMap, MazeEntity, TILE_SIZE};
+use crate::plugins::telemetry::GameSet;
 use crate::resources::{GameStats, LevelConfig, Score};
 
 pub struct CombatPlugin;
@@ -25,6 +26,7 @@ impl Plugin for CombatPlugin {
                 player_kills_enemy.after(weapon_pickup),
                 enemy_respawn,
             )
+                .in_set(GameSet::Combat)
                 .run_if(in_state(PlayingState::Playing)),
         );
     }

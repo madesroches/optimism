@@ -3,13 +3,14 @@ use micromegas_tracing::prelude::*;
 
 use super::maze::MazeMap;
 use super::maze::TILE_SIZE;
+use super::telemetry::GameSet;
 
 pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_camera);
-        app.add_systems(Update, fit_camera_to_maze);
+        app.add_systems(Update, fit_camera_to_maze.in_set(GameSet::Presentation));
     }
 }
 

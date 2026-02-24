@@ -10,6 +10,7 @@ use micromegas_tracing::prelude::*;
 use crate::app_state::PlayingState;
 use crate::components::*;
 use crate::plugins::maze::{grid_to_world, MazeMap};
+use crate::plugins::telemetry::GameSet;
 
 pub struct MovementPlugin;
 
@@ -22,6 +23,7 @@ impl Plugin for MovementPlugin {
                 movement_interpolation.after(movement_validation),
                 sync_transform_to_grid.after(movement_interpolation),
             )
+                .in_set(GameSet::Movement)
                 .run_if(in_state(PlayingState::Playing)),
         );
     }

@@ -11,6 +11,7 @@ use crate::plugins::maze::{grid_to_world, load_maze, MazeMap, MazeEntity, TILE_S
 use crate::plugins::sprites::{
     AnimationState, AnimationTimer, CharacterSheetRef, FacingDirection, SpriteSheetLibrary,
 };
+use crate::plugins::telemetry::GameSet;
 use crate::resources::{GameStats, LevelConfig, Lives};
 
 pub struct EnemyPlugin;
@@ -24,6 +25,7 @@ impl Plugin for EnemyPlugin {
         app.add_systems(
             Update,
             (enemy_ai, enemy_player_collision.after(enemy_ai))
+                .in_set(GameSet::AI)
                 .run_if(in_state(PlayingState::Playing)),
         );
         app.add_systems(OnEnter(PlayingState::PlayerDeath), handle_player_death);
@@ -33,7 +35,9 @@ impl Plugin for EnemyPlugin {
         );
         app.add_systems(
             Update,
-            pen_release.run_if(in_state(PlayingState::Playing)),
+            pen_release
+                .in_set(GameSet::AI)
+                .run_if(in_state(PlayingState::Playing)),
         );
         app.add_systems(
             OnEnter(PlayingState::LevelTransition),

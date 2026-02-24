@@ -6,6 +6,7 @@ use micromegas_tracing::prelude::*;
 use crate::app_state::PlayingState;
 use crate::components::*;
 use crate::plugins::maze::{grid_to_world, load_maze, MazeMap, TILE_SIZE};
+use crate::plugins::telemetry::GameSet;
 use crate::plugins::sprites::{
     AnimationState, AnimationTimer, CharacterSheetRef, FacingDirection, SpriteSheetLibrary,
     resolve_animation_key, set_animation,
@@ -22,6 +23,7 @@ impl Plugin for PlayerPlugin {
         app.add_systems(
             Update,
             (player_input, apply_player_direction, sync_facing_to_animation)
+                .in_set(GameSet::Player)
                 .run_if(in_state(PlayingState::Playing)),
         );
     }

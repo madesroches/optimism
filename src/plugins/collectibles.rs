@@ -7,6 +7,7 @@ use crate::app_state::PlayingState;
 use crate::components::{GridPosition, LuxuryItem, LuxuryTimeout, Money, Player};
 use crate::events::{LuxuryCollected, MoneyCollected};
 use crate::plugins::maze::{grid_to_world, load_maze, MazeEntity, MazeMap, TILE_SIZE};
+use crate::plugins::telemetry::GameSet;
 use crate::resources::{GameStats, LevelConfig, Score};
 
 pub struct CollectiblePlugin;
@@ -25,6 +26,7 @@ impl Plugin for CollectiblePlugin {
                 luxury_timeout,
                 check_level_complete.after(money_collection),
             )
+                .in_set(GameSet::Collectibles)
                 .run_if(in_state(PlayingState::Playing)),
         );
     }
