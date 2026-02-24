@@ -12,10 +12,7 @@ impl Plugin for GameOverPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(AppState::GameOver), spawn_game_over);
         app.add_systems(OnExit(AppState::GameOver), despawn_game_over);
-        app.add_systems(
-            Update,
-            game_over_input.run_if(in_state(AppState::GameOver)),
-        );
+        app.add_systems(Update, game_over_input.run_if(in_state(AppState::GameOver)));
     }
 }
 

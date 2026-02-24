@@ -36,8 +36,7 @@ mod tests {
     #[test]
     fn inquisitor_targets_ahead_of_player() {
         // Wide corridor so 4-ahead target is valid
-        let maze =
-            MazeMap::parse("########\n#P     #\n#      #\n#     G#\n########").unwrap();
+        let maze = MazeMap::parse("########\n#P     #\n#      #\n#     G#\n########").unwrap();
         let dir = choose_direction(
             GridPosition { x: 6, y: 3 },
             GridPosition { x: 1, y: 1 },

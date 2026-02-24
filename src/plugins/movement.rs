@@ -9,7 +9,7 @@ use micromegas_tracing::prelude::*;
 
 use crate::app_state::PlayingState;
 use crate::components::*;
-use crate::plugins::maze::{grid_to_world, MazeMap};
+use crate::plugins::maze::{MazeMap, grid_to_world};
 use crate::plugins::telemetry::GameSet;
 
 pub struct MovementPlugin;
@@ -80,7 +80,9 @@ fn movement_validation(
         *pos = target;
 
         // Start visual interpolation
-        commands.entity(entity).insert(MoveLerp { from, to, t: 0.0 });
+        commands
+            .entity(entity)
+            .insert(MoveLerp { from, to, t: 0.0 });
     }
 }
 

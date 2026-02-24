@@ -23,10 +23,10 @@ use plugins::maze::MazePlugin;
 use plugins::menu::MenuPlugin;
 use plugins::movement::MovementPlugin;
 use plugins::narration::NarrationPlugin;
+use plugins::narration::NarrationState;
 use plugins::player::PlayerPlugin;
 use plugins::sprites::SpriteSheetPlugin;
 use plugins::telemetry::TelemetryPlugin;
-use plugins::narration::NarrationState;
 use resources::{AudioAssets, CurrentLevel, GameStats, Lives, Score};
 
 pub struct OptimismPlugin;

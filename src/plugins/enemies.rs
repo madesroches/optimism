@@ -7,7 +7,7 @@ use crate::ai;
 use crate::app_state::{AppState, PlayingState};
 use crate::components::*;
 use crate::plugins::combat::{ActiveWeapon, Frightened, Respawning, WeaponTimer};
-use crate::plugins::maze::{grid_to_world, load_maze, MazeMap, MazeEntity, TILE_SIZE};
+use crate::plugins::maze::{MazeEntity, MazeMap, TILE_SIZE, grid_to_world, load_maze};
 use crate::plugins::sprites::{
     AnimationState, AnimationTimer, CharacterSheetRef, FacingDirection, SpriteSheetLibrary,
 };
@@ -141,12 +141,24 @@ fn enemy_ai(
     maze: Res<MazeMap>,
     player_query: Query<(&GridPosition, &FacingDirection), With<Player>>,
     mut enemy_query: Query<
-        (Entity, &GridPosition, &EnemyKind, &mut FacingDirection, Has<Frightened>),
-        (With<Enemy>, Without<Player>, Without<InPen>, Without<MoveLerp>, Without<MoveDirection>, Without<Respawning>),
+        (
+            Entity,
+            &GridPosition,
+            &EnemyKind,
+            &mut FacingDirection,
+            Has<Frightened>,
+        ),
+        (
+            With<Enemy>,
+            Without<Player>,
+            Without<InPen>,
+            Without<MoveLerp>,
+            Without<MoveDirection>,
+            Without<Respawning>,
+        ),
     >,
     mut commands: Commands,
 ) {
-
     let Ok((player_pos, player_facing)) = player_query.single() else {
         return;
     };
@@ -206,7 +218,15 @@ fn remove_pen_release_timer(mut commands: Commands) {
 #[span_fn]
 fn enemy_player_collision(
     player_query: Query<(&GridPosition, Option<&PreviousGridPosition>), With<Player>>,
-    enemy_query: Query<(&GridPosition, Option<&PreviousGridPosition>), (With<Enemy>, Without<InPen>, Without<Frightened>, Without<Respawning>)>,
+    enemy_query: Query<
+        (&GridPosition, Option<&PreviousGridPosition>),
+        (
+            With<Enemy>,
+            Without<InPen>,
+            Without<Frightened>,
+            Without<Respawning>,
+        ),
+    >,
     mut next_state: ResMut<NextState<PlayingState>>,
     mut lives: ResMut<Lives>,
     mut stats: ResMut<GameStats>,
@@ -235,12 +255,23 @@ fn enemy_player_collision(
 
 /// On player death: reset positions, clean up movement and combat state.
 /// If no lives left, game over.
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 #[span_fn]
 fn handle_player_death(
     mut commands: Commands,
-    mut player_query: Query<(Entity, &mut GridPosition, &SpawnPosition, &mut InputDirection), (With<Player>, Without<Enemy>)>,
-    mut enemy_query: Query<(Entity, &mut GridPosition, &SpawnPosition), (With<Enemy>, Without<Player>)>,
+    mut player_query: Query<
+        (
+            Entity,
+            &mut GridPosition,
+            &SpawnPosition,
+            &mut InputDirection,
+        ),
+        (With<Player>, Without<Enemy>),
+    >,
+    mut enemy_query: Query<
+        (Entity, &mut GridPosition, &SpawnPosition),
+        (With<Enemy>, Without<Player>),
+    >,
     maze: Res<MazeMap>,
     lives: Res<Lives>,
     config: Res<LevelConfig>,
@@ -357,13 +388,10 @@ mod tests {
     fn enemy_collision_triggers_death() {
         let mut app = setup_app();
         let pos = GridPosition { x: 1, y: 1 };
-        app.world_mut().spawn((Player, pos, SpawnPosition(pos), InputDirection::default()));
-        app.world_mut().spawn((
-            Enemy,
-            EnemyKind::Soldier,
-            pos,
-            SpawnPosition(pos),
-        ));
+        app.world_mut()
+            .spawn((Player, pos, SpawnPosition(pos), InputDirection::default()));
+        app.world_mut()
+            .spawn((Enemy, EnemyKind::Soldier, pos, SpawnPosition(pos)));
 
         app.update();
 
@@ -377,13 +405,10 @@ mod tests {
         app.insert_resource(Lives(1));
 
         let pos = GridPosition { x: 1, y: 1 };
-        app.world_mut().spawn((Player, pos, SpawnPosition(pos), InputDirection::default()));
-        app.world_mut().spawn((
-            Enemy,
-            EnemyKind::Soldier,
-            pos,
-            SpawnPosition(pos),
-        ));
+        app.world_mut()
+            .spawn((Player, pos, SpawnPosition(pos), InputDirection::default()));
+        app.world_mut()
+            .spawn((Enemy, EnemyKind::Soldier, pos, SpawnPosition(pos)));
 
         // Collision decrements lives to 0
         app.update();
@@ -428,14 +453,10 @@ mod tests {
     fn in_pen_enemies_dont_collide() {
         let mut app = setup_app();
         let pos = GridPosition { x: 1, y: 1 };
-        app.world_mut().spawn((Player, pos, SpawnPosition(pos), InputDirection::default()));
-        app.world_mut().spawn((
-            Enemy,
-            EnemyKind::Soldier,
-            InPen,
-            pos,
-            SpawnPosition(pos),
-        ));
+        app.world_mut()
+            .spawn((Player, pos, SpawnPosition(pos), InputDirection::default()));
+        app.world_mut()
+            .spawn((Enemy, EnemyKind::Soldier, InPen, pos, SpawnPosition(pos)));
 
         app.update();
 

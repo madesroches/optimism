@@ -153,7 +153,11 @@ mod tests {
         let mut app = setup_app();
         transition_to_in_game(&mut app);
 
-        let hud_count = app.world_mut().query::<&HudRoot>().iter(app.world()).count();
+        let hud_count = app
+            .world_mut()
+            .query::<&HudRoot>()
+            .iter(app.world())
+            .count();
         assert_eq!(hud_count, 1);
     }
 
@@ -202,7 +206,11 @@ mod tests {
             app.update();
         }
 
-        let hud_count = app.world_mut().query::<&HudRoot>().iter(app.world()).count();
+        let hud_count = app
+            .world_mut()
+            .query::<&HudRoot>()
+            .iter(app.world())
+            .count();
         assert_eq!(hud_count, 0);
     }
 }

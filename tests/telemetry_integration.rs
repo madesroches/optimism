@@ -5,8 +5,8 @@ use micromegas_tracing::dispatch::{
     flush_log_buffer, flush_metrics_buffer, flush_thread_buffer, init_thread_stream,
 };
 use micromegas_tracing::levels::{self, LevelFilter};
-use micromegas_tracing::prelude::*;
 use micromegas_tracing::prelude::info;
+use micromegas_tracing::prelude::*;
 use micromegas_tracing::test_utils::init_in_memory_tracing;
 use serial_test::serial;
 use std::time::Duration;
@@ -55,9 +55,7 @@ fn micromegas_macros_dont_panic_in_bevy_systems() {
     // Run for ~5 frames then exit
     let mut frame_count = 0u32;
     App::new()
-        .add_plugins(
-            MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_millis(16))),
-        )
+        .add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_millis(16))))
         .add_systems(Update, (telemetry_system_a, telemetry_system_b))
         .add_systems(Update, move |mut exit: MessageWriter<AppExit>| {
             frame_count += 1;
@@ -78,7 +76,9 @@ fn micromegas_macros_dont_panic_in_bevy_systems() {
     let pool = ComputeTaskPool::get();
     pool.scope(|s| {
         for _ in 0..pool.thread_num() * 2 {
-            s.spawn(async { flush_thread_buffer(); });
+            s.spawn(async {
+                flush_thread_buffer();
+            });
         }
     });
 

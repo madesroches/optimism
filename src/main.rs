@@ -1,14 +1,14 @@
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy::tasks::{ComputeTaskPool, TaskPoolBuilder};
-use micromegas_telemetry_sink::tracing_interop::TracingCaptureLayer;
 use micromegas_telemetry_sink::TelemetryGuardBuilder;
+use micromegas_telemetry_sink::tracing_interop::TracingCaptureLayer;
 use micromegas_tracing::dispatch::init_thread_stream;
+use micromegas_tracing::levels::LevelFilter;
 use micromegas_tracing::prelude::info;
 use optimism::tracing_bridge::MicromegasBridgeLayer;
-use micromegas_tracing::levels::LevelFilter;
-use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::Registry;
+use tracing_subscriber::layer::SubscriberExt;
 
 fn main() {
     // 1. Initialize telemetry (creates LocalEventSink for stdout)
@@ -31,8 +31,7 @@ fn main() {
     let subscriber = Registry::default()
         .with(MicromegasBridgeLayer)
         .with(log_layer);
-    tracing::subscriber::set_global_default(subscriber)
-        .expect("failed to set tracing subscriber");
+    tracing::subscriber::set_global_default(subscriber).expect("failed to set tracing subscriber");
 
     // 3. Pre-init ComputeTaskPool with Micromegas thread callbacks.
     //    Must happen BEFORE App::new() so TaskPoolPlugin finds the pool

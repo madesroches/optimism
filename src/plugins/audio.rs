@@ -35,7 +35,10 @@ impl Plugin for GameAudioPlugin {
 
         // SFX via state hooks
         app.add_systems(OnEnter(PlayingState::PlayerDeath), play_death_sfx);
-        app.add_systems(OnEnter(PlayingState::LevelComplete), play_level_complete_sfx);
+        app.add_systems(
+            OnEnter(PlayingState::LevelComplete),
+            play_level_complete_sfx,
+        );
     }
 }
 
@@ -142,7 +145,15 @@ mod tests {
         app.update();
 
         // Channel resources should exist
-        assert!(app.world().get_resource::<AudioChannel<MusicChannel>>().is_some());
-        assert!(app.world().get_resource::<AudioChannel<SfxChannel>>().is_some());
+        assert!(
+            app.world()
+                .get_resource::<AudioChannel<MusicChannel>>()
+                .is_some()
+        );
+        assert!(
+            app.world()
+                .get_resource::<AudioChannel<SfxChannel>>()
+                .is_some()
+        );
     }
 }

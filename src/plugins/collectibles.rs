@@ -6,7 +6,7 @@ use micromegas_tracing::prelude::*;
 use crate::app_state::PlayingState;
 use crate::components::{GridPosition, LuxuryItem, LuxuryTimeout, Money, Player};
 use crate::events::{LuxuryCollected, MoneyCollected};
-use crate::plugins::maze::{grid_to_world, load_maze, MazeEntity, MazeMap, TILE_SIZE};
+use crate::plugins::maze::{MazeEntity, MazeMap, TILE_SIZE, grid_to_world, load_maze};
 use crate::plugins::telemetry::GameSet;
 use crate::resources::{GameStats, LevelConfig, Score};
 
@@ -58,11 +58,7 @@ fn money_collection(
 
 /// Spawn luxury items at L positions from the maze.
 #[span_fn]
-fn spawn_luxury_items(
-    mut commands: Commands,
-    maze: Res<MazeMap>,
-    config: Res<LevelConfig>,
-) {
+fn spawn_luxury_items(mut commands: Commands, maze: Res<MazeMap>, config: Res<LevelConfig>) {
     if config.is_garden {
         return;
     }

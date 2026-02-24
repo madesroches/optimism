@@ -8,9 +8,9 @@
 
 use micromegas_tracing::dispatch::{on_begin_named_scope, on_end_named_scope};
 use micromegas_tracing::intern_string::intern_string;
+use tracing::Subscriber;
 use tracing::field::{Field, Visit};
 use tracing::span::{Attributes, Id};
-use tracing::Subscriber;
 use tracing_subscriber::layer::{Context, Layer};
 use tracing_subscriber::registry::LookupSpan;
 

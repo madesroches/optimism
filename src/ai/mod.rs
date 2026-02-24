@@ -22,11 +22,7 @@ pub fn next_direction_toward(
     // Use A* to find path, then return direction of first step
     let path = pathfinding::prelude::astar(
         &from,
-        |pos| {
-            maze.enemy_neighbors(*pos)
-                .into_iter()
-                .map(|n| (n, 1u32))
-        },
+        |pos| maze.enemy_neighbors(*pos).into_iter().map(|n| (n, 1u32)),
         |pos| manhattan(pos, &target),
         |pos| *pos == target,
     );
