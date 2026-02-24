@@ -7,13 +7,7 @@
 
 use optimism::plugins::sprites::*;
 
-const CHARACTERS: &[&str] = &[
-    "candide_base",
-    "soldier",
-    "inquisitor",
-    "thief",
-    "brute",
-];
+const CHARACTERS: &[&str] = &["candide_base", "soldier", "inquisitor", "thief", "brute"];
 
 const EXPECTED_ANIMATIONS: &[&str] = &[
     "walk_down",
@@ -114,15 +108,23 @@ fn main() {
         let png_data = std::fs::read(&png_path).unwrap();
         // PNG header: bytes 16-23 contain width (u32 BE) and height (u32 BE)
         if png_data.len() > 24 {
-            let width = u32::from_be_bytes([png_data[16], png_data[17], png_data[18], png_data[19]]);
-            let height = u32::from_be_bytes([png_data[20], png_data[21], png_data[22], png_data[23]]);
+            let width =
+                u32::from_be_bytes([png_data[16], png_data[17], png_data[18], png_data[19]]);
+            let height =
+                u32::from_be_bytes([png_data[20], png_data[21], png_data[22], png_data[23]]);
             let expected_w = meta.columns * meta.frame_size[0];
             let expected_h = meta.rows * meta.frame_size[1];
             if width != expected_w || height != expected_h {
                 eprintln!(
                     "FAIL: {}: PNG {}x{} doesn't match metadata {}x{} ({}cols x {}rows x {}px)",
-                    name, width, height, expected_w, expected_h,
-                    meta.columns, meta.rows, meta.frame_size[0]
+                    name,
+                    width,
+                    height,
+                    expected_w,
+                    expected_h,
+                    meta.columns,
+                    meta.rows,
+                    meta.frame_size[0]
                 );
                 errors += 1;
             }
@@ -141,7 +143,11 @@ fn main() {
         }
     }
 
-    println!("\n{} characters checked, {} errors", CHARACTERS.len(), errors);
+    println!(
+        "\n{} characters checked, {} errors",
+        CHARACTERS.len(),
+        errors
+    );
     if errors > 0 {
         std::process::exit(1);
     }

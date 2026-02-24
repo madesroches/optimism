@@ -11,10 +11,7 @@ impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(AppState::MainMenu), spawn_menu);
         app.add_systems(OnExit(AppState::MainMenu), despawn_menu);
-        app.add_systems(
-            Update,
-            menu_input.run_if(in_state(AppState::MainMenu)),
-        );
+        app.add_systems(Update, menu_input.run_if(in_state(AppState::MainMenu)));
     }
 }
 
@@ -81,10 +78,7 @@ fn despawn_menu(mut commands: Commands, query: Query<Entity, With<MenuRoot>>) {
 }
 
 #[span_fn]
-fn menu_input(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut next_state: ResMut<NextState<AppState>>,
-) {
+fn menu_input(keyboard: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
     if keyboard.just_pressed(KeyCode::Enter) {
         next_state.set(AppState::InGame);
     }

@@ -36,8 +36,7 @@ fn dep_compat_all_plugins_coexist() {
     app.add_plugins(PhysicsPlugins::default());
     app.init_state::<TestGameState>();
     app.add_loading_state(
-        LoadingState::new(TestGameState::Loading)
-            .continue_to_state(TestGameState::Running),
+        LoadingState::new(TestGameState::Loading).continue_to_state(TestGameState::Running),
     );
     // finish() must be called before update() — Plugin::finish() is where
     // avian2d registers its diagnostics resources.

@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use micromegas_tracing::prelude::*;
 
 use crate::app_state::AppState;
+use crate::plugins::telemetry::GameSet;
 use crate::resources::{CurrentLevel, Lives, Score};
 
 pub struct HudPlugin;
@@ -14,7 +15,9 @@ impl Plugin for HudPlugin {
         app.add_systems(OnExit(AppState::InGame), despawn_hud);
         app.add_systems(
             Update,
-            update_hud.run_if(in_state(AppState::InGame)),
+            update_hud
+                .in_set(GameSet::Presentation)
+                .run_if(in_state(AppState::InGame)),
         );
     }
 }
@@ -150,7 +153,11 @@ mod tests {
         let mut app = setup_app();
         transition_to_in_game(&mut app);
 
-        let hud_count = app.world_mut().query::<&HudRoot>().iter(app.world()).count();
+        let hud_count = app
+            .world_mut()
+            .query::<&HudRoot>()
+            .iter(app.world())
+            .count();
         assert_eq!(hud_count, 1);
     }
 
@@ -199,7 +206,11 @@ mod tests {
             app.update();
         }
 
-        let hud_count = app.world_mut().query::<&HudRoot>().iter(app.world()).count();
+        let hud_count = app
+            .world_mut()
+            .query::<&HudRoot>()
+            .iter(app.world())
+            .count();
         assert_eq!(hud_count, 0);
     }
 }

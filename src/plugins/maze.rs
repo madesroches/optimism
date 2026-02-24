@@ -8,7 +8,7 @@ use micromegas_tracing::prelude::*;
 
 use crate::app_state::{AppState, PlayingState};
 use crate::components::{GridPosition, Money, Wall};
-use crate::resources::{level_config, CurrentLevel, LevelConfig};
+use crate::resources::{CurrentLevel, LevelConfig, level_config};
 
 pub struct MazePlugin;
 
@@ -39,7 +39,10 @@ impl Plugin for MazePlugin {
 
         app.add_systems(
             OnEnter(PlayingState::LevelTransition),
-            (despawn_maze_entities, advance_level.after(despawn_maze_entities)),
+            (
+                despawn_maze_entities,
+                advance_level.after(despawn_maze_entities),
+            ),
         );
 
         // Clean up all maze entities when leaving InGame (e.g. GameOver).
@@ -149,9 +152,8 @@ impl MazeMap {
         for (y, line) in lines.iter().enumerate() {
             let mut row = Vec::with_capacity(width);
             for (x, ch) in line.chars().enumerate() {
-                let tile = TileType::from_char(ch).ok_or_else(|| {
-                    format!("Unknown tile character '{}' at ({}, {})", ch, x, y)
-                })?;
+                let tile = TileType::from_char(ch)
+                    .ok_or_else(|| format!("Unknown tile character '{}' at ({}, {})", ch, x, y))?;
 
                 let pos = GridPosition {
                     x: x as i32,
@@ -436,10 +438,7 @@ fn level_intro_input(
 
 /// Clean up level intro UI.
 #[span_fn]
-fn despawn_level_intro_ui(
-    mut commands: Commands,
-    query: Query<Entity, With<LevelIntroUI>>,
-) {
+fn despawn_level_intro_ui(mut commands: Commands, query: Query<Entity, With<LevelIntroUI>>) {
     for entity in &query {
         commands.entity(entity).despawn();
     }
@@ -449,7 +448,10 @@ fn despawn_level_intro_ui(
 /// Start a 1.5s timer on LevelComplete.
 #[span_fn]
 fn start_level_complete_timer(mut commands: Commands) {
-    commands.insert_resource(LevelCompleteTimer(Timer::from_seconds(1.5, TimerMode::Once)));
+    commands.insert_resource(LevelCompleteTimer(Timer::from_seconds(
+        1.5,
+        TimerMode::Once,
+    )));
 }
 
 /// Tick level complete timer → transition to LevelTransition.
@@ -467,10 +469,7 @@ fn level_complete_delay(
 
 /// Despawn all maze entities during level transition.
 #[span_fn]
-fn despawn_maze_entities(
-    mut commands: Commands,
-    query: Query<Entity, With<MazeEntity>>,
-) {
+fn despawn_maze_entities(mut commands: Commands, query: Query<Entity, With<MazeEntity>>) {
     for entity in &query {
         commands.entity(entity).despawn();
     }
@@ -481,10 +480,7 @@ fn despawn_maze_entities(
 
 /// Clean up maze entities when exiting InGame state (covers GameOver path).
 #[span_fn]
-fn cleanup_on_exit_game(
-    mut commands: Commands,
-    query: Query<Entity, With<MazeEntity>>,
-) {
+fn cleanup_on_exit_game(mut commands: Commands, query: Query<Entity, With<MazeEntity>>) {
     for entity in &query {
         commands.entity(entity).despawn();
     }
@@ -495,10 +491,7 @@ fn cleanup_on_exit_game(
 
 /// Increment level and transition back to LevelIntro.
 #[span_fn]
-fn advance_level(
-    mut level: ResMut<CurrentLevel>,
-    mut next_state: ResMut<NextState<PlayingState>>,
-) {
+fn advance_level(mut level: ResMut<CurrentLevel>, mut next_state: ResMut<NextState<PlayingState>>) {
     level.0 += 1;
     next_state.set(PlayingState::LevelIntro);
 }
@@ -633,8 +626,8 @@ mod tests {
             let path = format!("assets/maps/{}.txt", name);
             let text = std::fs::read_to_string(&path)
                 .unwrap_or_else(|e| panic!("Failed to read {}: {}", path, e));
-            let maze = MazeMap::parse(&text)
-                .unwrap_or_else(|e| panic!("Failed to parse {}: {}", path, e));
+            let maze =
+                MazeMap::parse(&text).unwrap_or_else(|e| panic!("Failed to parse {}: {}", path, e));
             assert!(maze.width > 0, "{} has zero width", name);
             assert!(maze.height > 0, "{} has zero height", name);
         }
@@ -644,8 +637,17 @@ mod tests {
     fn garden_has_no_enemies_or_weapons() {
         let text = std::fs::read_to_string("assets/maps/garden.txt").unwrap();
         let maze = MazeMap::parse(&text).unwrap();
-        assert!(maze.enemy_spawns.is_empty(), "Garden should have no enemy spawns");
-        assert!(maze.weapon_spawns.is_empty(), "Garden should have no weapon spawns");
-        assert!(maze.luxury_spawns.is_empty(), "Garden should have no luxury spawns");
+        assert!(
+            maze.enemy_spawns.is_empty(),
+            "Garden should have no enemy spawns"
+        );
+        assert!(
+            maze.weapon_spawns.is_empty(),
+            "Garden should have no weapon spawns"
+        );
+        assert!(
+            maze.luxury_spawns.is_empty(),
+            "Garden should have no luxury spawns"
+        );
     }
 }

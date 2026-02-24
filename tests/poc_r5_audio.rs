@@ -22,7 +22,9 @@ fn audio_plugin_initializes_headless() {
 
     // Verify the Audio resource (AudioChannel<MainTrack>) was registered.
     assert!(
-        app.world().get_resource::<AudioChannel<MainTrack>>().is_some(),
+        app.world()
+            .get_resource::<AudioChannel<MainTrack>>()
+            .is_some(),
         "Audio resource should exist after AudioPlugin initialization"
     );
 }

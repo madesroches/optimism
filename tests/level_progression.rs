@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
 use optimism::app_state::{AppState, PlayingState};
-use optimism::resources::{level_config, CurrentLevel, GameStats, Lives, Score};
+use optimism::resources::{CurrentLevel, GameStats, Lives, Score, level_config};
 
 fn setup_app() -> App {
     let mut app = App::new();

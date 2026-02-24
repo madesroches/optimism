@@ -5,6 +5,7 @@ use micromegas_tracing::prelude::*;
 
 use crate::app_state::{AppState, PlayingState};
 use crate::events::{EnemyKilled, MoneyCollected, WeaponPickedUp};
+use crate::plugins::telemetry::GameSet;
 use crate::resources::CurrentLevel;
 
 pub struct NarrationPlugin;
@@ -20,7 +21,9 @@ impl Plugin for NarrationPlugin {
 
         app.add_systems(
             Update,
-            fade_narration.run_if(in_state(AppState::InGame)),
+            fade_narration
+                .in_set(GameSet::Presentation)
+                .run_if(in_state(AppState::InGame)),
         );
     }
 }

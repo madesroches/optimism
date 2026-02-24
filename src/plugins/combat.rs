@@ -6,7 +6,8 @@ use micromegas_tracing::prelude::*;
 use crate::app_state::PlayingState;
 use crate::components::*;
 use crate::events::{EnemyKilled, WeaponPickedUp};
-use crate::plugins::maze::{grid_to_world, load_maze, MazeMap, MazeEntity, TILE_SIZE};
+use crate::plugins::maze::{MazeEntity, MazeMap, TILE_SIZE, grid_to_world, load_maze};
+use crate::plugins::telemetry::GameSet;
 use crate::resources::{GameStats, LevelConfig, Score};
 
 pub struct CombatPlugin;
@@ -25,6 +26,7 @@ impl Plugin for CombatPlugin {
                 player_kills_enemy.after(weapon_pickup),
                 enemy_respawn,
             )
+                .in_set(GameSet::Combat)
                 .run_if(in_state(PlayingState::Playing)),
         );
     }
@@ -150,7 +152,10 @@ fn weapon_timer(
 #[span_fn]
 fn player_kills_enemy(
     mut commands: Commands,
-    player_query: Query<(&GridPosition, &ActiveWeapon, Option<&PreviousGridPosition>), With<Player>>,
+    player_query: Query<
+        (&GridPosition, &ActiveWeapon, Option<&PreviousGridPosition>),
+        With<Player>,
+    >,
     enemy_query: Query<
         (Entity, &GridPosition, Option<&PreviousGridPosition>),
         (With<Enemy>, With<Frightened>, Without<Respawning>),
@@ -180,7 +185,11 @@ fn player_kills_enemy(
             *stats.kills_by_weapon.entry(active_weapon.0).or_insert(0) += 1;
             score.0 += 200;
             let total_kills: u32 = stats.kills_by_weapon.values().sum();
-            micromegas_tracing::prelude::info!("enemy_killed: weapon={:?} score={}", active_weapon.0, score.0);
+            micromegas_tracing::prelude::info!(
+                "enemy_killed: weapon={:?} score={}",
+                active_weapon.0,
+                score.0
+            );
             imetric!("kills", "count", total_kills as u64);
             commands.trigger(EnemyKilled);
         }
@@ -287,8 +296,7 @@ mod tests {
         let pos = GridPosition { x: 1, y: 1 };
 
         let player = app.world_mut().spawn((Player, pos)).id();
-        app.world_mut()
-            .spawn((WeaponPickup, WeaponType::Bat, pos));
+        app.world_mut().spawn((WeaponPickup, WeaponType::Bat, pos));
         let enemy = app
             .world_mut()
             .spawn((Enemy, EnemyKind::Soldier, GridPosition { x: 3, y: 3 }))
@@ -351,8 +359,8 @@ mod tests {
 
     #[test]
     fn frightened_direction_flees_player() {
-        let maze = crate::plugins::maze::MazeMap::parse("#####\n#   #\n# P #\n#   #\n#####")
-            .unwrap();
+        let maze =
+            crate::plugins::maze::MazeMap::parse("#####\n#   #\n# P #\n#   #\n#####").unwrap();
         let dir = frightened_direction(
             GridPosition { x: 2, y: 2 }, // enemy at center
             GridPosition { x: 1, y: 2 }, // player to the left

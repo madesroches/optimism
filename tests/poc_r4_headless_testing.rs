@@ -258,7 +258,10 @@ struct LifetimeMessage;
 #[derive(Resource, Default)]
 struct MsgCount(u32);
 
-fn count_lifetime_messages(mut reader: MessageReader<LifetimeMessage>, mut count: ResMut<MsgCount>) {
+fn count_lifetime_messages(
+    mut reader: MessageReader<LifetimeMessage>,
+    mut count: ResMut<MsgCount>,
+) {
     count.0 = reader.read().count() as u32;
 }
 
@@ -367,7 +370,10 @@ fn run_if_state_gating() {
     app.add_plugins(StatesPlugin);
     app.init_state::<GateState>();
     app.init_resource::<TickCounter>();
-    app.add_systems(Update, increment_counter.run_if(in_state(GateState::Active)));
+    app.add_systems(
+        Update,
+        increment_counter.run_if(in_state(GateState::Active)),
+    );
     app.finish();
     app.cleanup();
 
@@ -504,7 +510,10 @@ fn combined_game_like_scenario() {
         if app.world().resource::<LevelCompleted>().0 {
             break;
         }
-        assert!(frames < max_frames, "Level never completed after {max_frames} frames");
+        assert!(
+            frames < max_frames,
+            "Level never completed after {max_frames} frames"
+        );
     }
 
     println!("Game-like scenario completed in {frames} frame(s)");

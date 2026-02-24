@@ -45,7 +45,9 @@ fn setup(
     commands.spawn(Camera2d);
 
     // Determine which character to load from CLI args, default to "candide_base"
-    let char_name = std::env::args().nth(1).unwrap_or_else(|| "candide_base".to_string());
+    let char_name = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| "candide_base".to_string());
     let png_path = format!("sprites/{}.png", char_name);
 
     match library.load(&char_name, &png_path, &asset_server, &mut layouts) {
@@ -65,7 +67,13 @@ fn setup(
     } else if sheet.meta.animations.contains_key("walk_down") {
         "walk_down"
     } else {
-        sheet.meta.animations.keys().next().map(|s| s.as_str()).unwrap_or("idle")
+        sheet
+            .meta
+            .animations
+            .keys()
+            .next()
+            .map(|s| s.as_str())
+            .unwrap_or("idle")
     };
 
     let initial_index = sheet
@@ -88,7 +96,10 @@ fn setup(
         Transform::from_scale(Vec3::splat(SPRITE_SCALE)),
         CharacterSheetRef(char_name.clone()),
         AnimationState::new(initial_anim, true),
-        AnimationTimer(Timer::from_seconds(1.0 / ANIMATION_FPS, TimerMode::Repeating)),
+        AnimationTimer(Timer::from_seconds(
+            1.0 / ANIMATION_FPS,
+            TimerMode::Repeating,
+        )),
         FacingDirection::Down,
     ));
 
@@ -110,13 +121,16 @@ fn setup(
 fn handle_input(
     keys: Res<ButtonInput<KeyCode>>,
     library: Res<SpriteSheetLibrary>,
-    mut query: Query<(
-        &CharacterSheetRef,
-        &mut Movement,
-        &mut FacingDirection,
-        &mut AnimationState,
-        &mut Sprite,
-    ), With<TestCharacter>>,
+    mut query: Query<
+        (
+            &CharacterSheetRef,
+            &mut Movement,
+            &mut FacingDirection,
+            &mut AnimationState,
+            &mut Sprite,
+        ),
+        With<TestCharacter>,
+    >,
 ) {
     for (sheet_ref, mut movement, mut facing, mut anim_state, mut sprite) in &mut query {
         let Some(sheet) = library.sheets.get(&sheet_ref.0) else {
@@ -169,14 +183,17 @@ fn handle_input(
 fn update_animation_from_movement(
     time: Res<Time>,
     library: Res<SpriteSheetLibrary>,
-    mut query: Query<(
-        &CharacterSheetRef,
-        &Movement,
-        &FacingDirection,
-        &mut AnimationState,
-        &mut Sprite,
-        &mut Transform,
-    ), With<TestCharacter>>,
+    mut query: Query<
+        (
+            &CharacterSheetRef,
+            &Movement,
+            &FacingDirection,
+            &mut AnimationState,
+            &mut Sprite,
+            &mut Transform,
+        ),
+        With<TestCharacter>,
+    >,
 ) {
     for (sheet_ref, movement, facing, mut anim_state, mut sprite, mut transform) in &mut query {
         // Apply movement to transform
