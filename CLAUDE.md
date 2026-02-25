@@ -52,7 +52,7 @@ Each character produces a PNG sprite sheet + JSON metadata sidecar in `assets/sp
 | Crate | Purpose |
 |-------|---------|
 | bevy 0.18 | Game engine (2D rendering, ECS, UI) |
-| micromegas 0.20 | Telemetry: spans, metrics, structured logging |
+| micromegas 0.20 | Telemetry: spans, metrics, logging |
 | avian2d 0.5 | 2D physics (wall colliders, sensor triggers) |
 | bevy_kira_audio 0.25 | Audio playback |
 | bevy_asset_loader 0.25 | Declarative asset loading with state-driven progress |

@@ -418,10 +418,10 @@ Each plugin includes telemetry calls that demonstrate a specific instrumentation
 
 | Plugin | Instrumentation | What It Teaches |
 |--------|----------------|-----------------|
-| `player.rs` | `span_scope!("player_movement")`, `info!("player_moved: {:?}", direction)` | Tracing system execution, structured logging |
+| `player.rs` | `span_scope!("player_movement")`, `info!("player_moved: {:?}", direction)` | Tracing system execution, logging |
 | `enemies.rs` | `span_scope!("enemy_ai")` per enemy, `imetric!("ai_path_length", "tiles", path.len())` | Per-entity spans, performance metrics |
 | `collectibles.rs` | `info!("money_collected: {}", score)`, `imetric!("score", "points", score)` | Event logging, gameplay metrics |
-| `combat.rs` | `info!("enemy_killed: {:?} by {:?}", enemy_type, weapon)`, `imetric!("kills", "count", 1)` | Structured event data |
+| `combat.rs` | `info!("enemy_killed: {:?} by {:?}", enemy_type, weapon)`, `imetric!("kills", "count", 1)` | Event logging, kill metrics |
 | `narration.rs` | `span_scope!("narration_display")` | UI system tracing |
 | `maze.rs` | `span_scope!("maze_load")`, `fmetric!("maze_load_ms", "ms", elapsed.as_secs_f64() * 1000.0)` | Asset loading performance |
 | `app_state.rs` | `info!("state_change: {:?} -> {:?}", from, to)` | Lifecycle events |
