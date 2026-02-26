@@ -1,13 +1,14 @@
 //! Collectible systems: money dots, luxury items, and level completion.
 
 use bevy::prelude::*;
+use micromegas_tracing::prelude::info;
 use micromegas_tracing::prelude::*;
 
 use crate::app_state::PlayingState;
 use crate::components::{GridPosition, LuxuryItem, LuxuryTimeout, Money, Player};
 use crate::events::{LuxuryCollected, MoneyCollected};
 use crate::plugins::maze::{MazeEntity, MazeMap, TILE_SIZE, grid_to_world, load_maze};
-use crate::plugins::telemetry::GameSet;
+use crate::plugins::telemetry::{GameContext, GameSet};
 use crate::resources::{GameStats, LevelConfig, Score};
 
 pub struct CollectiblePlugin;
@@ -40,6 +41,7 @@ fn money_collection(
     mut stats: ResMut<GameStats>,
     player_query: Query<&GridPosition, With<Player>>,
     money_query: Query<(Entity, &GridPosition), With<Money>>,
+    game_ctx: Res<GameContext>,
 ) {
     let Ok(player_pos) = player_query.single() else {
         return;
@@ -49,8 +51,8 @@ fn money_collection(
             commands.entity(entity).despawn();
             score.0 += 10;
             stats.money_collected += 10;
-            micromegas_tracing::prelude::info!("money_collected: score={}", score.0);
-            imetric!("score", "points", score.0);
+            info!(properties: game_ctx.properties, "money_collected: score={}", score.0);
+            imetric!("score", "points", game_ctx.properties, score.0);
             commands.trigger(MoneyCollected);
         }
     }
@@ -142,6 +144,7 @@ mod tests {
         app.add_sub_state::<PlayingState>();
         app.insert_resource(Score(0));
         app.init_resource::<GameStats>();
+        app.insert_resource(GameContext::new("test"));
         app.add_systems(
             Update,
             money_collection.run_if(in_state(PlayingState::Playing)),
@@ -197,6 +200,7 @@ mod tests {
         app.add_sub_state::<PlayingState>();
         app.insert_resource(Score(0));
         app.init_resource::<GameStats>();
+        app.insert_resource(GameContext::new("test"));
         app.add_systems(
             Update,
             (

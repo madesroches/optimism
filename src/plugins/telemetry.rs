@@ -10,13 +10,18 @@
 //! multi-threaded parallelism.  The Micromegas analysis tool correlates
 //! async subsystem spans with sync per-system spans by time overlap.
 
+use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use bevy::prelude::*;
 use micromegas_tracing::dispatch::{on_begin_async_scope, on_end_async_scope};
+use micromegas_tracing::intern_string::intern_string;
 use micromegas_tracing::prelude::*;
+use micromegas_tracing::property_set::{Property, PropertySet};
 
-use crate::app_state::PlayingState;
+use crate::app_state::{AppState, PlayingState};
+use crate::plugins::maze::load_maze;
+use crate::resources::LevelConfig;
 
 // ---------------------------------------------------------------------------
 // Subsystem sets — used by individual plugins via `.in_set(GameSet::X)`
@@ -33,6 +38,24 @@ pub enum GameSet {
 }
 
 // ---------------------------------------------------------------------------
+// Game context — carries a PropertySet for per-map metric/log tagging
+// ---------------------------------------------------------------------------
+
+#[derive(Resource)]
+pub struct GameContext {
+    pub properties: &'static PropertySet,
+}
+
+impl GameContext {
+    /// Create a GameContext for the given map name (e.g. "level_01").
+    pub fn new(map_name: &str) -> Self {
+        let name = intern_string(map_name);
+        let props = PropertySet::find_or_create(vec![Property::new("map", name)]);
+        Self { properties: props }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Plugin
 // ---------------------------------------------------------------------------
 
@@ -40,6 +63,13 @@ pub struct TelemetryPlugin;
 
 impl Plugin for TelemetryPlugin {
     fn build(&self, app: &mut App) {
+        // Game context (per-map property set for metric tagging)
+        app.add_systems(
+            OnEnter(PlayingState::LevelIntro),
+            update_game_context.after(load_maze),
+        );
+        app.add_systems(OnExit(AppState::InGame), cleanup_game_context);
+
         // Frame span (sync, Main schedule)
         app.add_systems(Main, begin_frame_span.before(Main::run_main));
         app.add_systems(Main, end_frame_span.after(Main::run_main));
@@ -124,9 +154,34 @@ fn end_frame_span() {
 }
 
 #[span_fn]
-fn frame_telemetry(time: Res<Time>) {
+fn frame_telemetry(time: Res<Time>, game_ctx: Option<Res<GameContext>>) {
     let dt_ms = time.delta_secs_f64() * 1000.0;
-    fmetric!("frame_time_ms", "ms", dt_ms);
+    if let Some(ref ctx) = game_ctx {
+        fmetric!("frame_time_ms", "ms", ctx.properties, dt_ms);
+    } else {
+        fmetric!("frame_time_ms", "ms", dt_ms);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Game context systems
+// ---------------------------------------------------------------------------
+
+fn map_name_from_path(path: &str) -> &str {
+    Path::new(path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("unknown")
+}
+
+#[span_fn]
+fn update_game_context(mut commands: Commands, config: Res<LevelConfig>) {
+    commands.insert_resource(GameContext::new(map_name_from_path(&config.maze_file)));
+}
+
+#[span_fn]
+fn cleanup_game_context(mut commands: Commands) {
+    commands.remove_resource::<GameContext>();
 }
 
 // ---------------------------------------------------------------------------

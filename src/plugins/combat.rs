@@ -1,13 +1,14 @@
 //! Weapons and combat: weapon pickups, frightened mode, enemy kills, respawning.
 
 use bevy::prelude::*;
+use micromegas_tracing::prelude::info;
 use micromegas_tracing::prelude::*;
 
 use crate::app_state::PlayingState;
 use crate::components::*;
 use crate::events::{EnemyKilled, WeaponPickedUp};
 use crate::plugins::maze::{MazeEntity, MazeMap, TILE_SIZE, grid_to_world, load_maze};
-use crate::plugins::telemetry::GameSet;
+use crate::plugins::telemetry::{GameContext, GameSet};
 use crate::resources::{GameStats, LevelConfig, Score};
 
 pub struct CombatPlugin;
@@ -162,6 +163,7 @@ fn player_kills_enemy(
     >,
     mut score: ResMut<Score>,
     mut stats: ResMut<GameStats>,
+    game_ctx: Res<GameContext>,
 ) {
     let Ok((player_pos, active_weapon, player_prev)) = player_query.single() else {
         return;
@@ -185,12 +187,13 @@ fn player_kills_enemy(
             *stats.kills_by_weapon.entry(active_weapon.0).or_insert(0) += 1;
             score.0 += 200;
             let total_kills: u32 = stats.kills_by_weapon.values().sum();
-            micromegas_tracing::prelude::info!(
+            info!(
+                properties: game_ctx.properties,
                 "enemy_killed: weapon={:?} score={}",
                 active_weapon.0,
                 score.0
             );
-            imetric!("kills", "count", total_kills as u64);
+            imetric!("kills", "count", game_ctx.properties, total_kills as u64);
             commands.trigger(EnemyKilled);
         }
     }
@@ -261,6 +264,7 @@ mod tests {
     use bevy::state::app::StatesPlugin;
 
     fn setup_app() -> App {
+        use crate::plugins::telemetry::GameContext;
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_plugins(StatesPlugin);
@@ -268,6 +272,7 @@ mod tests {
         app.add_sub_state::<PlayingState>();
         app.insert_resource(Score(0));
         app.init_resource::<GameStats>();
+        app.insert_resource(GameContext::new("test"));
         app.add_systems(
             Update,
             (weapon_pickup, player_kills_enemy.after(weapon_pickup))
