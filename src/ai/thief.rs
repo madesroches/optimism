@@ -1,6 +1,6 @@
 //! Thief AI: semi-random movement with bias toward the player at close range.
 
-use micromegas_tracing::prelude::*;
+use micromegas::tracing::prelude::*;
 
 use crate::components::{Direction, GridPosition};
 use crate::plugins::maze::MazeMap;

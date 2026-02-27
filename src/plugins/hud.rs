@@ -1,7 +1,7 @@
 //! HUD overlay: score, lives, and level display.
 
 use bevy::prelude::*;
-use micromegas_tracing::prelude::*;
+use micromegas::tracing::prelude::*;
 
 use crate::app_state::AppState;
 use crate::plugins::telemetry::GameSet;

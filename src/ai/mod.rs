@@ -5,7 +5,7 @@ pub mod inquisitor;
 pub mod soldier;
 pub mod thief;
 
-use micromegas_tracing::prelude::*;
+use micromegas::tracing::prelude::*;
 
 use crate::components::{Direction, GridPosition};
 use crate::plugins::maze::MazeMap;

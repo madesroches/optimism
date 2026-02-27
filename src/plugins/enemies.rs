@@ -1,7 +1,7 @@
 //! Enemy spawning, AI dispatch, collision with player, death handling, and pen release.
 
 use bevy::prelude::*;
-use micromegas_tracing::prelude::*;
+use micromegas::tracing::prelude::*;
 
 use crate::ai;
 use crate::app_state::{AppState, PlayingState};

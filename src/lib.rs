@@ -9,7 +9,7 @@ pub mod tracing_bridge;
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use bevy_kira_audio::AudioPlugin;
-use micromegas_tracing::prelude::*;
+use micromegas::tracing::prelude::*;
 
 use app_state::{AppState, PlayingState};
 use plugins::audio::GameAudioPlugin;

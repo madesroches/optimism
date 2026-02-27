@@ -5,7 +5,7 @@
 //! via `MoveLerp` for smooth animation between tiles.
 
 use bevy::prelude::*;
-use micromegas_tracing::prelude::*;
+use micromegas::tracing::prelude::*;
 
 use crate::app_state::PlayingState;
 use crate::components::*;

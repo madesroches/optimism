@@ -1,7 +1,7 @@
 //! Inquisitor AI: targets 4 tiles ahead of the player's facing direction.
 //! If that tile is not walkable, falls back to targeting the player directly.
 
-use micromegas_tracing::prelude::*;
+use micromegas::tracing::prelude::*;
 
 use crate::components::{Direction, GridPosition};
 use crate::plugins::maze::MazeMap;

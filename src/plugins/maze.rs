@@ -4,7 +4,7 @@
 //! for pathfinding. Walls and floors are rendered as colored rectangles.
 
 use bevy::prelude::*;
-use micromegas_tracing::prelude::*;
+use micromegas::tracing::prelude::*;
 
 use crate::app_state::{AppState, PlayingState};
 use crate::components::{GridPosition, Money, Wall};
@@ -369,7 +369,7 @@ pub fn load_maze(mut commands: Commands, config: Res<LevelConfig>) {
         }
     }
 
-    micromegas_tracing::prelude::info!("maze loaded: {} ({}x{})", path, maze.width, maze.height);
+    micromegas::tracing::prelude::info!("maze loaded: {} ({}x{})", path, maze.width, maze.height);
     commands.insert_resource(maze);
 }
 

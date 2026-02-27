@@ -19,7 +19,7 @@ This project serves as a tutorial demonstrating how to integrate [Micromegas](ht
 | Crate | Purpose |
 |-------|---------|
 | [Bevy 0.18](https://bevyengine.org/) | Game engine (2D rendering, ECS, UI) |
-| [Micromegas 0.20](https://madesroches.github.io/micromegas/) | Telemetry: spans, metrics, logging |
+| [Micromegas 0.21](https://madesroches.github.io/micromegas/) | Telemetry: spans, metrics, logging |
 | [Avian2D 0.5](https://github.com/Jondolf/avian) | 2D physics (wall colliders, sensor triggers) |
 | [bevy_kira_audio 0.25](https://github.com/NiklasEi/bevy_kira_audio) | Audio playback |
 | [bevy_asset_loader 0.25](https://github.com/NiklasEi/bevy_asset_loader) | Declarative asset loading |
@@ -62,15 +62,14 @@ This section walks through the integration step by step, using this project as a
 
 ### 1. Dependencies
 
-You only need `micromegas-tracing` and `micromegas-telemetry-sink` — the top-level `micromegas` crate pulls in the server and analytics stack, which a game client doesn't need. Add these along with the `tracing` ecosystem to `Cargo.toml`, and enable Bevy's `trace` feature so it emits `tracing` spans for schedules and systems.
+Use the `micromegas` umbrella crate — it re-exports `micromegas::tracing`, `micromegas::telemetry_sink`, and `micromegas::telemetry` as submodules with well-managed internal dependencies. Add it along with the `tracing` ecosystem to `Cargo.toml`, and enable Bevy's `trace` feature so it emits `tracing` spans for schedules and systems.
 
 ```toml
 [dependencies]
 bevy = { version = "0.18", features = ["trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["registry"] }
-micromegas-tracing = "0.20"
-micromegas-telemetry-sink = "0.20"
+micromegas = "0.21"
 ```
 
 ### 2. Bootstrap in main.rs
@@ -81,10 +80,10 @@ Micromegas must be initialized **before** Bevy. The setup has three phases that 
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy::tasks::{ComputeTaskPool, TaskPoolBuilder};
-use micromegas_telemetry_sink::TelemetryGuardBuilder;
-use micromegas_telemetry_sink::tracing_interop::TracingCaptureLayer;
-use micromegas_tracing::dispatch::init_thread_stream;
-use micromegas_tracing::levels::LevelFilter;
+use micromegas::telemetry_sink::TelemetryGuardBuilder;
+use micromegas::telemetry_sink::tracing_interop::TracingCaptureLayer;
+use micromegas::tracing::dispatch::init_thread_stream;
+use micromegas::tracing::levels::LevelFilter;
 use tracing_subscriber::Registry;
 use tracing_subscriber::layer::SubscriberExt;
 
@@ -114,8 +113,8 @@ fn main() {
         TaskPoolBuilder::new()
             .on_thread_spawn(|| init_thread_stream())
             .on_thread_destroy(|| {
-                micromegas_tracing::dispatch::flush_thread_buffer();
-                micromegas_tracing::dispatch::unregister_thread_stream();
+                micromegas::tracing::dispatch::flush_thread_buffer();
+                micromegas::tracing::dispatch::unregister_thread_stream();
             })
             .build()
     });
@@ -135,8 +134,8 @@ fn main() {
 With Bevy's `trace` feature enabled, every schedule run (Update, FixedUpdate, etc.) emits a `tracing` span named `"schedule"`. A small `tracing_subscriber::Layer` forwards these into Micromegas named scopes. See [`src/tracing_bridge.rs`](src/tracing_bridge.rs) for the full implementation.
 
 ```rust
-use micromegas_tracing::dispatch::{on_begin_named_scope, on_end_named_scope};
-use micromegas_tracing::intern_string::intern_string;
+use micromegas::tracing::dispatch::{on_begin_named_scope, on_end_named_scope};
+use micromegas::tracing::intern_string::intern_string;
 
 pub struct MicromegasBridgeLayer;
 
@@ -172,7 +171,7 @@ where
 Annotate every Bevy system with `#[span_fn]` to get per-system spans in the trace timeline.
 
 ```rust
-use micromegas_tracing::prelude::*;
+use micromegas::tracing::prelude::*;
 
 #[span_fn]
 fn move_player(mut query: Query<&mut Transform, With<Player>>, time: Res<Time>) {
@@ -185,7 +184,7 @@ fn move_player(mut query: Query<&mut Transform, With<Player>>, time: Res<Time>) 
 Use `fmetric!` for floating-point values and `imetric!` for integer counters.
 
 ```rust
-use micromegas_tracing::prelude::*;
+use micromegas::tracing::prelude::*;
 
 #[span_fn]
 fn frame_telemetry(time: Res<Time>) {
@@ -202,13 +201,13 @@ imetric!("kills", "count", total_kills as u64);
 Micromegas provides its own `info!` macro. Since Bevy also exports `info!` via its prelude, disambiguate at call sites:
 
 ```rust
-micromegas_tracing::prelude::info!("money_collected: score={}", score.0);
+micromegas::tracing::prelude::info!("money_collected: score={}", score.0);
 ```
 
 Or, in files that don't import Bevy's prelude, import it directly:
 
 ```rust
-use micromegas_tracing::prelude::info;
+use micromegas::tracing::prelude::info;
 info!("maze loaded: {} ({}x{})", path, width, height);
 ```
 

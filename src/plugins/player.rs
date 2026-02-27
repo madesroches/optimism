@@ -1,7 +1,7 @@
 //! Player spawning and input handling.
 
 use bevy::prelude::*;
-use micromegas_tracing::prelude::*;
+use micromegas::tracing::prelude::*;
 
 use crate::app_state::PlayingState;
 use crate::components::*;

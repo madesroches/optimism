@@ -1,11 +1,11 @@
 use bevy::log::LogPlugin;
 use bevy::prelude::*;
 use bevy::tasks::{ComputeTaskPool, TaskPoolBuilder};
-use micromegas_telemetry_sink::TelemetryGuardBuilder;
-use micromegas_telemetry_sink::tracing_interop::TracingCaptureLayer;
-use micromegas_tracing::dispatch::init_thread_stream;
-use micromegas_tracing::levels::LevelFilter;
-use micromegas_tracing::prelude::info;
+use micromegas::telemetry_sink::TelemetryGuardBuilder;
+use micromegas::telemetry_sink::tracing_interop::TracingCaptureLayer;
+use micromegas::tracing::dispatch::init_thread_stream;
+use micromegas::tracing::levels::LevelFilter;
+use micromegas::tracing::prelude::info;
 use optimism::tracing_bridge::MicromegasBridgeLayer;
 use tracing_subscriber::Registry;
 use tracing_subscriber::layer::SubscriberExt;
@@ -42,8 +42,8 @@ fn main() {
                 init_thread_stream();
             })
             .on_thread_destroy(|| {
-                micromegas_tracing::dispatch::flush_thread_buffer();
-                micromegas_tracing::dispatch::unregister_thread_stream();
+                micromegas::tracing::dispatch::flush_thread_buffer();
+                micromegas::tracing::dispatch::unregister_thread_stream();
             })
             .build()
     });

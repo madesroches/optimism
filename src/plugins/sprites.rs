@@ -5,7 +5,7 @@
 //! and provides an animation system that ticks through frames.
 
 use bevy::prelude::*;
-use micromegas_tracing::prelude::*;
+use micromegas::tracing::prelude::*;
 use std::collections::HashMap;
 
 use crate::plugins::telemetry::GameSet;

@@ -43,7 +43,7 @@ Each character produces a PNG sprite sheet + JSON metadata sidecar in `assets/sp
 ## Architecture
 
 - **Bevy 0.18** ECS with plugin-based design. Each system is a `Plugin`.
-- **Micromegas** telemetry is a first-class concern: initialized before Bevy in `main.rs`, `ComputeTaskPool` pre-init with thread callbacks. Use `use micromegas_tracing::prelude::*;` and `#[span_fn]` on all system functions. Use `fmetric!`, `imetric!` for metrics. The `info!` macro conflicts with Bevy's glob — add `use micromegas_tracing::prelude::info;` to disambiguate, then use `info!()` directly. Tag metrics/logs with `GameContext` properties for per-map analytics (see `src/plugins/telemetry.rs`).
+- **Micromegas** telemetry is a first-class concern: initialized before Bevy in `main.rs`, `ComputeTaskPool` pre-init with thread callbacks. Use `use micromegas::tracing::prelude::*;` and `#[span_fn]` on all system functions. Use `fmetric!`, `imetric!` for metrics. The `info!` macro conflicts with Bevy's glob — add `use micromegas::tracing::prelude::info;` to disambiguate, then use `info!()` directly. Tag metrics/logs with `GameContext` properties for per-map analytics (see `src/plugins/telemetry.rs`).
 - **Grid-based movement** — discrete tile-to-tile, not continuous physics. Avian2d is a safety net, not the primary collision system.
 - **Sprite system** (`src/plugins/sprites.rs`): `SpriteSheetLibrary` loads PNG+JSON, builds `TextureAtlasLayout`, drives frame animation via `AnimationState`/`AnimationTimer`/`FacingDirection` components.
 
@@ -52,7 +52,7 @@ Each character produces a PNG sprite sheet + JSON metadata sidecar in `assets/sp
 | Crate | Purpose |
 |-------|---------|
 | bevy 0.18 | Game engine (2D rendering, ECS, UI) |
-| micromegas 0.20 | Telemetry: spans, metrics, logging |
+| micromegas 0.21 | Telemetry: spans, metrics, logging (umbrella crate) |
 | avian2d 0.5 | 2D physics (wall colliders, sensor triggers) |
 | bevy_kira_audio 0.25 | Audio playback |
 | bevy_asset_loader 0.25 | Declarative asset loading with state-driven progress |

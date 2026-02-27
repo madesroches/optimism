@@ -1,7 +1,7 @@
 //! Main menu UI: title screen with start prompt.
 
 use bevy::prelude::*;
-use micromegas_tracing::prelude::*;
+use micromegas::tracing::prelude::*;
 
 use crate::app_state::AppState;
 

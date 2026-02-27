@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use micromegas_tracing::prelude::*;
+use micromegas::tracing::prelude::*;
 
 use super::maze::MazeMap;
 use super::maze::TILE_SIZE;

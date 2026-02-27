@@ -6,8 +6,8 @@
 //! them as Micromegas named-scope events, giving full schedule-level visibility
 //! in the trace timeline without any Bevy internals surgery.
 
-use micromegas_tracing::dispatch::{on_begin_named_scope, on_end_named_scope};
-use micromegas_tracing::intern_string::intern_string;
+use micromegas::tracing::dispatch::{on_begin_named_scope, on_end_named_scope};
+use micromegas::tracing::intern_string::intern_string;
 use tracing::Subscriber;
 use tracing::field::{Field, Visit};
 use tracing::span::{Attributes, Id};
@@ -15,7 +15,7 @@ use tracing_subscriber::layer::{Context, Layer};
 use tracing_subscriber::registry::LookupSpan;
 
 // All bridged schedule spans share a single static source location.
-micromegas_tracing::static_span_location!(BRIDGE_LOCATION);
+micromegas::tracing::static_span_location!(BRIDGE_LOCATION);
 
 /// Data stored in each schedule span's extensions.
 struct ScheduleSpanData {

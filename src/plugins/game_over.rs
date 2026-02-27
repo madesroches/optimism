@@ -1,7 +1,7 @@
 //! Game Over screen: display stats and return to main menu.
 
 use bevy::prelude::*;
-use micromegas_tracing::prelude::*;
+use micromegas::tracing::prelude::*;
 
 use crate::app_state::AppState;
 use crate::resources::{CurrentLevel, GameStats, Score};

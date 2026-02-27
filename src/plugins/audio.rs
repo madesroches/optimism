@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::*;
-use micromegas_tracing::prelude::*;
+use micromegas::tracing::prelude::*;
 
 use crate::app_state::{AppState, PlayingState};
 use crate::events::{EnemyKilled, LuxuryCollected, MoneyCollected, WeaponPickedUp};

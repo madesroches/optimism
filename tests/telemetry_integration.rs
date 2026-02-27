@@ -1,13 +1,13 @@
 use bevy::app::ScheduleRunnerPlugin;
 use bevy::prelude::*;
 use bevy::tasks::{ComputeTaskPool, TaskPoolBuilder};
-use micromegas_tracing::dispatch::{
+use micromegas::tracing::dispatch::{
     flush_log_buffer, flush_metrics_buffer, flush_thread_buffer, init_thread_stream,
 };
-use micromegas_tracing::levels::{self, LevelFilter};
-use micromegas_tracing::prelude::info;
-use micromegas_tracing::prelude::*;
-use micromegas_tracing::test_utils::init_in_memory_tracing;
+use micromegas::tracing::levels::{self, LevelFilter};
+use micromegas::tracing::prelude::info;
+use micromegas::tracing::prelude::*;
+use micromegas::tracing::test_utils::init_in_memory_tracing;
 use serial_test::serial;
 use std::time::Duration;
 
@@ -47,7 +47,7 @@ fn micromegas_macros_dont_panic_in_bevy_systems() {
             })
             .on_thread_destroy(|| {
                 flush_thread_buffer();
-                micromegas_tracing::dispatch::unregister_thread_stream();
+                micromegas::tracing::dispatch::unregister_thread_stream();
             })
             .build()
     });

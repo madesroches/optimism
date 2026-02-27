@@ -14,10 +14,10 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use bevy::prelude::*;
-use micromegas_tracing::dispatch::{on_begin_async_scope, on_end_async_scope};
-use micromegas_tracing::intern_string::intern_string;
-use micromegas_tracing::prelude::*;
-use micromegas_tracing::property_set::{Property, PropertySet};
+use micromegas::tracing::dispatch::{on_begin_async_scope, on_end_async_scope};
+use micromegas::tracing::intern_string::intern_string;
+use micromegas::tracing::prelude::*;
+use micromegas::tracing::property_set::{Property, PropertySet};
 
 use crate::app_state::{AppState, PlayingState};
 use crate::plugins::maze::load_maze;
@@ -146,11 +146,11 @@ impl Plugin for TelemetryPlugin {
 static_span_desc!(FRAME_SPAN, "Frame");
 
 fn begin_frame_span() {
-    micromegas_tracing::dispatch::on_begin_scope(&FRAME_SPAN);
+    micromegas::tracing::dispatch::on_begin_scope(&FRAME_SPAN);
 }
 
 fn end_frame_span() {
-    micromegas_tracing::dispatch::on_end_scope(&FRAME_SPAN);
+    micromegas::tracing::dispatch::on_end_scope(&FRAME_SPAN);
 }
 
 #[span_fn]
